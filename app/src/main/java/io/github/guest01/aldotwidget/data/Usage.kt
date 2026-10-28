@@ -3,9 +3,16 @@ package io.github.guest01.aldotwidget.data
 import io.github.guest01.aldotwidget.data.api.LineDto
 import io.github.guest01.aldotwidget.data.api.RealTimeResponse
 import io.github.guest01.aldotwidget.data.api.UsageItemDto
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.time.Instant
 
 /** 제공량과 사용량. 단위는 종류마다 다르다 (데이터 KB, 음성 초, 문자 건). */
+@Serializable
 data class Quota(val total: Long, val used: Long) {
     val remaining: Long get() = (total - used).coerceAtLeast(0)
 
@@ -14,6 +21,7 @@ data class Quota(val total: Long, val used: Long) {
 }
 
 /** 화면과 위젯이 그리는 데 필요한 값만 모은 사용량 스냅샷 */
+@Serializable
 data class UsageSnapshot(
     val phoneMasked: String?,
     val partnerName: String?,
@@ -24,6 +32,7 @@ data class UsageSnapshot(
     val data: Quota?,
     val voice: Quota?,
     val sms: Quota?,
+    @Serializable(with = InstantAsEpochMillis::class)
     val fetchedAt: Instant,
 )
 
@@ -52,4 +61,11 @@ private fun List<UsageItemDto>?.sumQuota(): Quota? {
     }
     if (parsed.isEmpty()) return null
     return Quota(total = parsed.sumOf { it.first }, used = parsed.sumOf { it.second })
+}
+
+/** Instant를 JSON에 숫자(epoch 밀리초)로 저장한다. kotlinx.serialization은 java.time 타입을 기본 지원하지 않는다. */
+object InstantAsEpochMillis : KSerializer<Instant> {
+    override val descriptor = PrimitiveSerialDescriptor("InstantAsEpochMillis", PrimitiveKind.LONG)
+    override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeLong(value.toEpochMilli())
+    override fun deserialize(decoder: Decoder): Instant = Instant.ofEpochMilli(decoder.decodeLong())
 }

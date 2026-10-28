@@ -1,6 +1,7 @@
 package io.github.guest01.aldotwidget
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,7 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.guest01.aldotwidget.ui.MainUiState
@@ -19,6 +23,8 @@ import io.github.guest01.aldotwidget.ui.main.ErrorScreen
 import io.github.guest01.aldotwidget.ui.main.LoadingScreen
 import io.github.guest01.aldotwidget.ui.main.UsageScreen
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
+import io.github.guest01.aldotwidget.widget.UsageWidgetReceiver
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,6 +42,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Scaffold가 상태 표시줄·내비게이션 바 높이를 innerPadding으로 알려 준다 (edge-to-edge 대응)
     Scaffold(Modifier.fillMaxSize()) { innerPadding ->
@@ -53,6 +61,16 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                 error = s.error,
                 onRefresh = viewModel::refresh,
                 onLogout = viewModel::logout,
+                onAddWidget = {
+                    // 런처에 "이 위젯을 홈 화면에 추가할까요?" 창을 띄워 달라고 요청한다 (Android 8+ 표준 기능)
+                    scope.launch {
+                        val supported = GlanceAppWidgetManager(context)
+                            .requestPinGlanceAppWidget(UsageWidgetReceiver::class.java)
+                        if (!supported) {
+                            Toast.makeText(context, "이 홈 화면 앱은 위젯 추가 요청을 지원하지 않아요", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 modifier = modifier,
             )
             is MainUiState.Failed -> ErrorScreen(s.message, onRetry = viewModel::refresh, modifier = modifier)

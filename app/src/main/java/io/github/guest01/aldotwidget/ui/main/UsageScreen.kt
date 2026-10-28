@@ -39,6 +39,7 @@ fun UsageScreen(
     error: String?,
     onRefresh: () -> Unit,
     onLogout: () -> Unit,
+    onAddWidget: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -70,6 +71,7 @@ fun UsageScreen(
             }
             TextButton(onClick = onLogout) { Text("로그아웃") }
         }
+        TextButton(onClick = onAddWidget) { Text("홈 화면에 위젯 추가") }
         Text(
             text = "알닷 실시간 사용량은 참고용이며 전산 반영이 늦을 수 있습니다.",
             style = MaterialTheme.typography.bodySmall,
@@ -167,6 +169,7 @@ private fun UsageScreenPreview() {
             error = null,
             onRefresh = {},
             onLogout = {},
+            onAddWidget = {},
         )
     }
 }

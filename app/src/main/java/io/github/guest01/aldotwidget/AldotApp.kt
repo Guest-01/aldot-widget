@@ -5,6 +5,8 @@ import android.content.Context
 import android.webkit.WebSettings
 import io.github.guest01.aldotwidget.data.SessionManager
 import io.github.guest01.aldotwidget.data.UsageRepository
+import io.github.guest01.aldotwidget.data.UsageStore
+import io.github.guest01.aldotwidget.data.UsageSync
 import io.github.guest01.aldotwidget.data.api.AldotApi
 import io.github.guest01.aldotwidget.data.api.TokenRefreshInterceptor
 import io.github.guest01.aldotwidget.data.api.WebViewCookieJar
@@ -16,10 +18,10 @@ import java.util.concurrent.TimeUnit
  * (Hilt 같은 DI 라이브러리 대신 쓰는 수동 DI. 매니페스트의 android:name으로 등록한다.)
  */
 class AldotApp : Application() {
-    val container: AppContainer by lazy { AppContainer(this) }
+    val container: AppContainer by lazy { AppContainer(applicationContext) }
 }
 
-class AppContainer(context: Context) {
+class AppContainer(private val context: Context) {
 
     // WebView와 같은 User-Agent를 써서, 서버 입장에서 사이트를 쓰는 브라우저와 같은 클라이언트로 보이게 한다.
     private val userAgent: String = WebSettings.getDefaultUserAgent(context)
@@ -47,6 +49,8 @@ class AppContainer(context: Context) {
     val api = AldotApi(httpClient)
     val usageRepository = UsageRepository(api)
     val sessionManager = SessionManager(api)
+    val usageStore = UsageStore(context)
+    val usageSync = UsageSync(context, usageRepository, usageStore)
 
     companion object {
         const val SITE_ORIGIN = "https://www.uplusmvno.com"

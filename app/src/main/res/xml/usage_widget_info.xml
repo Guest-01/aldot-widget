@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    위젯 메타데이터: 위젯 선택 화면에 보이는 이름·설명, 기본 크기, 크기 조절 범위.
+    updatePeriodMillis="0": 시스템의 주기 갱신은 쓰지 않는다 (최소 30분 제한이 있고 네트워크 작업에 맞지 않음).
+    갱신은 앱이 데이터를 저장할 때 직접 요청하고, 3단계에서 WorkManager로 주기 작업을 붙인다.
+    targetCell*/maxResize*는 Android 12+에서만 쓰이고, 그 아래 버전은 min* 값을 쓴다.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

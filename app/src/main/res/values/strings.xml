@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">알닷 위젯</string>
+    <string name="widget_name">알닷 사용량</string>
+    <string name="widget_description">데이터·음성·문자 남은 양</string>
 </resources>
