@@ -78,7 +78,7 @@ class MainViewModel(
 
     fun logout() {
         viewModelScope.launch {
-            session.clear()
+            session.logout()
             _state.value = MainUiState.NeedLogin
         }
     }

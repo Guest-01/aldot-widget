@@ -5,8 +5,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.coroutines.executeAsync
 
 val AldotJson = Json {
     ignoreUnknownKeys = true
@@ -33,21 +36,39 @@ class AldotApi(
                 .build()
         )
 
-    private suspend inline fun <reified T> get(url: HttpUrl): T = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).get().build()
-        client.newCall(request).execute().use { response ->
-            val body = response.body.string()
-            val header = runCatching { AldotJson.decodeFromString<ResultHeader>(body) }.getOrNull()
-            when {
-                response.code == 401 || response.code == 403 || header?.resultCode in LOGOUT_CODES ->
-                    throw AldotException.NeedLogin()
-                !response.isSuccessful ->
-                    throw AldotException.Server(response.code, header?.resultCode, header?.resultMsg)
-                header?.resultCode != null && header.resultCode != "0000" ->
-                    throw AldotException.Server(response.code, header.resultCode, header.resultMsg)
-            }
-            AldotJson.decodeFromString<T>(body)
+    /**
+     * 서버 세션을 끊는다. 사이트와 같이 빈 JSON을 POST한다.
+     * 서버는 빈 본문으로 응답하므로 본문은 해석하지 않고 상태 코드만 확인한다.
+     */
+    suspend fun logout() {
+        val request = Request.Builder()
+            .url(baseUrl.resolve(LOGOUT_PATH)!!)
+            .post("{}".toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+        send(request)
+    }
+
+    private suspend inline fun <reified T> get(url: HttpUrl): T {
+        val body = send(Request.Builder().url(url).get().build())
+        return AldotJson.decodeFromString<T>(body)
+    }
+
+    /** 요청을 보내고 오류를 AldotException으로 바꾼 뒤, 정상이면 응답 본문을 돌려준다. */
+    private suspend fun send(request: Request): String {
+        // executeAsync는 코루틴이 취소되면 HTTP 요청도 취소한다 (블로킹 execute()는 취소되지 않음)
+        val response = client.newCall(request).executeAsync()
+        // 본문 읽기는 여전히 블로킹이라 IO 스레드에서 한다
+        val body = withContext(Dispatchers.IO) { response.use { it.body.string() } }
+        val header = runCatching { AldotJson.decodeFromString<ResultHeader>(body) }.getOrNull()
+        when {
+            response.code == 401 || response.code == 403 || header?.resultCode in LOGOUT_CODES ->
+                throw AldotException.NeedLogin()
+            !response.isSuccessful ->
+                throw AldotException.Server(response.code, header?.resultCode, header?.resultMsg)
+            header?.resultCode != null && header.resultCode != "0000" ->
+                throw AldotException.Server(response.code, header.resultCode, header.resultMsg)
         }
+        return body
     }
 
     companion object {
@@ -55,6 +76,9 @@ class AldotApi(
         const val LINE_INFO_PATH = "/umah/fo/care/main/v1/lineInfo"
         const val REAL_TIME_PATH = "/umah/fo/care/use/v1/real-time"
         const val REFRESH_PATH = "/umah/fo/user/v1/refreshTokenCreate"
+        const val LOGOUT_PATH = "/umah/fo/user/v1/logout"
+
+        private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 
         /** 사이트가 즉시 로그아웃 처리하는 결과 코드 */
         private val LOGOUT_CODES = setOf("N0009", "N9999")

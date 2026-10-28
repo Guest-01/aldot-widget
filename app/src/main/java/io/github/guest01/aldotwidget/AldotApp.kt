@@ -46,7 +46,7 @@ class AppContainer(context: Context) {
 
     val api = AldotApi(httpClient)
     val usageRepository = UsageRepository(api)
-    val sessionManager = SessionManager()
+    val sessionManager = SessionManager(api)
 
     companion object {
         const val SITE_ORIGIN = "https://www.uplusmvno.com"

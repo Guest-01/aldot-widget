@@ -64,6 +64,18 @@ class AldotApiTest {
     }
 
     @Test
+    fun `로그아웃은 빈 JSON을 POST하고 빈 응답도 성공으로 본다`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200)) // 실제 서버도 본문 없이 응답한다
+
+        api.logout()
+
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals(AldotApi.LOGOUT_PATH, request.path)
+        assertEquals("{}", request.body.readUtf8())
+    }
+
+    @Test
     fun `실시간 사용량 요청에 회선 파라미터를 싣는다`() = runBlocking {
         server.enqueue(json(200, """{"resultCode":"0000","remainDay":3}"""))
 
