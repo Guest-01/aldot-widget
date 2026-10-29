@@ -1,6 +1,7 @@
 package io.github.guest01.aldotwidget.widget
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,6 +16,7 @@ import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.SizeMode
@@ -55,9 +57,11 @@ import java.time.format.DateTimeFormatter
 class UsageWidget : GlanceAppWidget() {
 
     // 위젯 크기가 바뀌면 아래 크기들 중 들어맞는 가장 큰 크기로 미리 그려 둔 화면을 쓴다
-    override val sizeMode = SizeMode.Responsive(setOf(COMPACT, DETAILED))
+    override val sizeMode = SizeMode.Responsive(setOf(COMPACT, SQUARE, DETAILED))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        // 런처가 알려 준 실제 크기 (레이아웃 기준값을 정할 때 참고). adb logcat -s AldotWidget
+        Log.d(TAG, "sizes=${GlanceAppWidgetManager(context).getAppWidgetSizes(id)}")
         val store = (context.applicationContext as AldotApp).container.usageStore
         provideContent {
             val state by store.state.collectAsState(initial = null)
@@ -68,11 +72,18 @@ class UsageWidget : GlanceAppWidget() {
     }
 
     companion object {
-        /** 2×1 정도: 데이터 남은 양만 */
+        private const val TAG = "AldotWidget"
+
+        // 기준값은 내용이 들어가는 최소 크기. 칸 경계(실측 2칸 179dp, 1줄 ≈105dp)와 여유를 두고 정했다.
+
+        /** 가로로 긴 한 줄(2×1~4×1): 데이터 남은 양만 */
         val COMPACT = DpSize(110.dp, 40.dp)
 
-        /** 3×2 이상: 데이터·음성·문자 */
-        val DETAILED = DpSize(180.dp, 110.dp)
+        /** 좁고 높은 정사각형(2×2): 데이터 크게 + 음성·문자 작게 */
+        val SQUARE = DpSize(110.dp, 150.dp)
+
+        /** 넓고 높은(3×2~4×2): 데이터·음성·문자 막대 + 새로고침 버튼 */
+        val DETAILED = DpSize(250.dp, 150.dp)
     }
 }
 
@@ -83,8 +94,10 @@ class UsageWidgetReceiver : GlanceAppWidgetReceiver() {
 
 @Composable
 private fun UsageWidgetContent(state: UsageState?) {
+    // Responsive 모드에서는 위 세 크기 중 하나가 들어온다
     val size = LocalSize.current
     val detailed = size.width >= UsageWidget.DETAILED.width && size.height >= UsageWidget.DETAILED.height
+    val square = !detailed && size.height >= UsageWidget.SQUARE.height
 
     Box(
         modifier = GlanceModifier
@@ -103,8 +116,39 @@ private fun UsageWidgetContent(state: UsageState?) {
             snapshot == null && state.status == SyncStatus.ERROR -> Message("불러오지 못했어요", state.errorMessage)
             snapshot == null -> Message("알닷 위젯", "눌러서 로그인")
             detailed -> Detailed(snapshot, failed = state.status == SyncStatus.ERROR)
+            square -> Square(snapshot, failed = state.status == SyncStatus.ERROR)
             else -> Compact(snapshot)
         }
+    }
+}
+
+@Composable
+private fun Square(snapshot: UsageSnapshot, failed: Boolean) {
+    Column(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+        Text("데이터", style = labelStyle())
+        val data = snapshot.data
+        Text(data?.let { UsageFormat.dataKb(it.remaining) } ?: "정보 없음", style = valueStyle(22))
+        if (data != null) {
+            Text("남음 · 총 ${UsageFormat.dataKb(data.total)}", style = captionStyle())
+            Spacer(GlanceModifier.height(4.dp))
+            QuotaBar(data)
+        }
+        Spacer(GlanceModifier.height(10.dp))
+        SmallQuotaLine("음성", snapshot.voice, UsageFormat::voiceSeconds)
+        SmallQuotaLine("문자", snapshot.sms, UsageFormat::smsCount)
+        Spacer(GlanceModifier.height(6.dp))
+        Text(
+            text = fetchedAtText(snapshot) + if (failed) " · 갱신 실패" else "",
+            style = captionStyle(),
+        )
+    }
+}
+
+@Composable
+private fun SmallQuotaLine(label: String, quota: Quota?, format: (Long) -> String) {
+    Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = labelStyle(), modifier = GlanceModifier.defaultWeight())
+        Text(quota?.let { format(it.remaining) } ?: "-", style = valueStyle(12))
     }
 }
 
