@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    위젯 목록 항목 "데이터 남은 양" (기본 2×1).
+    세 항목 공통 규칙:
+    - 처음 놓이는 크기: Android 12+는 targetCell*(칸 수), 그 아래 버전은 minWidth/minHeight(dp)로 정해진다.
+    - 크기 조절: 허용하고 최대값은 두지 않는다. maxResize*는 런처마다 칸 수로 다르게 해석돼서
+      (Pixel에서 260dp는 3줄, 200dp는 2줄까지) 칸이 큰 기기에서 필요한 크기를 막을 수 있다.
+      대신 위젯이 크기에 맞는 모양을 골라 그린다 (UsageWidget의 SizeMode.Responsive).
+    - updatePeriodMillis="0": 시스템 주기 갱신은 쓰지 않는다 (앱이 저장할 때 갱신, 주기 작업은 WorkManager).
+    - 위젯 목록 미리보기: Android 15+는 앱이 실제 화면으로 만든 미리보기(WidgetPreviews.kt)를 쓰고,
+      그 아래 버전은 previewImage 그림을 쓴다. 그림은 15+ 미리보기를 가짜 데이터로 띄워 캡처한 것이다.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_compact_description"
+    android:previewImage="@drawable/widget_preview_compact"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

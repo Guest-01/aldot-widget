@@ -10,6 +10,11 @@ import io.github.guest01.aldotwidget.data.UsageSync
 import io.github.guest01.aldotwidget.data.api.AldotApi
 import io.github.guest01.aldotwidget.data.api.TokenRefreshInterceptor
 import io.github.guest01.aldotwidget.data.api.WebViewCookieJar
+import io.github.guest01.aldotwidget.widget.WidgetPreviews
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +24,14 @@ import java.util.concurrent.TimeUnit
  */
 class AldotApp : Application() {
     val container: AppContainer by lazy { AppContainer(applicationContext) }
+
+    /** 앱 프로세스가 살아 있는 동안 쓰는 코루틴 범위 (화면과 무관한 일회성 작업용) */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override fun onCreate() {
+        super.onCreate()
+        appScope.launch { WidgetPreviews.publishIfNeeded(this@AldotApp) }
+    }
 }
 
 class AppContainer(private val context: Context) {

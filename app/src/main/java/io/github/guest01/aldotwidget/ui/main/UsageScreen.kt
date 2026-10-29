@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import io.github.guest01.aldotwidget.data.Quota
 import io.github.guest01.aldotwidget.data.UsageFormat
 import io.github.guest01.aldotwidget.data.UsageSnapshot
+import io.github.guest01.aldotwidget.data.sampleSnapshot
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
-import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -153,18 +153,7 @@ fun ErrorScreen(message: String, onRetry: () -> Unit, modifier: Modifier = Modif
 private fun UsageScreenPreview() {
     AldotWidgetTheme {
         UsageScreen(
-            snapshot = UsageSnapshot(
-                phoneMasked = "010-12**-34**",
-                partnerName = "티플러스",
-                planName = "[티플러스] 5G 티플 가성비 (300분/15GB)",
-                periodStart = "2026.10.01",
-                periodEnd = "2026.10.26",
-                remainDays = 5,
-                data = Quota(total = 3044253, used = 2192504),
-                voice = Quota(total = 3484, used = 297),
-                sms = Quota(total = 59, used = 0),
-                fetchedAt = Instant.now(),
-            ),
+            snapshot = sampleSnapshot(),
             refreshing = false,
             error = null,
             onRefresh = {},

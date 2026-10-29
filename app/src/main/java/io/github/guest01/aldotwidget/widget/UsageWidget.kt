@@ -17,7 +17,6 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
@@ -46,6 +45,7 @@ import io.github.guest01.aldotwidget.data.SyncStatus
 import io.github.guest01.aldotwidget.data.UsageFormat
 import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.UsageState
+import io.github.guest01.aldotwidget.data.sampleSnapshot
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -58,6 +58,18 @@ class UsageWidget : GlanceAppWidget() {
 
     // 위젯 크기가 바뀌면 아래 크기들 중 들어맞는 가장 큰 크기로 미리 그려 둔 화면을 쓴다
     override val sizeMode = SizeMode.Responsive(setOf(COMPACT, SQUARE, DETAILED))
+
+    // 위젯 목록 미리보기도 같은 크기들로 그려 둔다. 런처가 항목의 기본 크기에 맞는 것을 골라 보여 준다.
+    override val previewSizeMode = SizeMode.Responsive(setOf(COMPACT, SQUARE, DETAILED))
+
+    /** Android 15+ 위젯 목록에 보일 미리보기. 실제 위젯과 같은 코드로 가짜 데이터를 그린다. */
+    override suspend fun providePreview(context: Context, widgetCategory: Int) {
+        provideContent {
+            GlanceTheme {
+                UsageWidgetContent(UsageState(snapshot = sampleSnapshot(), status = SyncStatus.OK))
+            }
+        }
+    }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         // 런처가 알려 준 실제 크기 (레이아웃 기준값을 정할 때 참고). adb logcat -s AldotWidget
@@ -85,11 +97,6 @@ class UsageWidget : GlanceAppWidget() {
         /** 넓고 높은(3×2~4×2): 데이터·음성·문자 막대 + 새로고침 버튼 */
         val DETAILED = DpSize(250.dp, 150.dp)
     }
-}
-
-/** 시스템이 위젯 이벤트(추가·삭제·갱신 요청)를 보내는 수신기. 매니페스트에 등록한다. */
-class UsageWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = UsageWidget()
 }
 
 @Composable
