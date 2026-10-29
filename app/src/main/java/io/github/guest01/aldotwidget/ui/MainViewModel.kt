@@ -6,13 +6,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.guest01.aldotwidget.AldotApp
+import io.github.guest01.aldotwidget.data.AppSettings
+import io.github.guest01.aldotwidget.data.RefreshInterval
 import io.github.guest01.aldotwidget.data.SessionManager
+import io.github.guest01.aldotwidget.data.SettingsStore
 import io.github.guest01.aldotwidget.data.SyncStatus
 import io.github.guest01.aldotwidget.data.UsageRepository
 import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.UsageState
 import io.github.guest01.aldotwidget.data.UsageStore
 import io.github.guest01.aldotwidget.data.UsageSync
+import io.github.guest01.aldotwidget.work.RefreshScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -63,6 +67,8 @@ class MainViewModel(
     store: UsageStore,
     private val repository: UsageRepository,
     private val session: SessionManager,
+    private val settingsStore: SettingsStore,
+    private val scheduler: RefreshScheduler,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
@@ -70,6 +76,25 @@ class MainViewModel(
     val state: StateFlow<MainUiState> = combine(store.state, refreshing, ::toUiState)
         // 화면이 구독하는 동안만 흐름을 유지 (화면 회전 같은 5초 미만의 끊김은 유지)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState.Loading)
+
+    val settings: StateFlow<AppSettings> = settingsStore.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    fun setRefreshInterval(interval: RefreshInterval) {
+        viewModelScope.launch {
+            settingsStore.setRefreshInterval(interval)
+            // 로그인된 상태에서만 주기 작업이 있어야 한다
+            if (state.value is MainUiState.Ready) scheduler.ensureScheduled()
+        }
+    }
+
+    fun onNotificationPermissionAsked() {
+        viewModelScope.launch { settingsStore.setNotificationPermissionAsked() }
+    }
+
+    fun dismissBatteryTip() {
+        viewModelScope.launch { settingsStore.setBatteryTipDismissed() }
+    }
 
     init {
         refresh()
@@ -109,6 +134,8 @@ class MainViewModel(
                     store = container.usageStore,
                     repository = container.usageRepository,
                     session = container.sessionManager,
+                    settingsStore = container.settingsStore,
+                    scheduler = container.refreshScheduler,
                 )
             }
         }

@@ -13,12 +13,14 @@ import io.github.guest01.aldotwidget.data.SyncStatus
 
 /**
  * WorkManager가 실행하는 백그라운드 조회 작업. 앱 화면이 없어도, 앱 프로세스가 죽어 있어도 시스템이 띄워서 실행한다.
+ * 위젯 버튼(일회성)과 자동 갱신(주기, RefreshScheduler)이 같은 작업을 쓴다.
  */
 class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         val sync = (applicationContext as AldotApp).container.usageSync
-        return when (sync.refresh()) {
+        val fromBackground = inputData.getBoolean(KEY_FROM_BACKGROUND, false)
+        return when (sync.refresh(fromBackground = fromBackground)) {
             // 네트워크 오류는 잠시 뒤 두 번까지 다시 시도 (WorkManager가 간격을 늘려 가며 재실행)
             SyncStatus.ERROR -> if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
             else -> Result.success()
@@ -26,6 +28,9 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     }
 
     companion object {
+        /** 자동 갱신에서 실행됐는지. 사용자가 보고 있지 않을 때만 재로그인 알림을 보낸다. */
+        const val KEY_FROM_BACKGROUND = "from_background"
+
         private const val UNIQUE_REFRESH_NOW = "usage-refresh-now"
         private const val MAX_RETRIES = 2
 

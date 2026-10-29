@@ -3,7 +3,9 @@ package io.github.guest01.aldotwidget
 import android.app.Application
 import android.content.Context
 import android.webkit.WebSettings
+import io.github.guest01.aldotwidget.data.Notifier
 import io.github.guest01.aldotwidget.data.SessionManager
+import io.github.guest01.aldotwidget.data.SettingsStore
 import io.github.guest01.aldotwidget.data.UsageRepository
 import io.github.guest01.aldotwidget.data.UsageStore
 import io.github.guest01.aldotwidget.data.UsageSync
@@ -11,6 +13,7 @@ import io.github.guest01.aldotwidget.data.api.AldotApi
 import io.github.guest01.aldotwidget.data.api.TokenRefreshInterceptor
 import io.github.guest01.aldotwidget.data.api.WebViewCookieJar
 import io.github.guest01.aldotwidget.widget.WidgetPreviews
+import io.github.guest01.aldotwidget.work.RefreshScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -63,7 +66,10 @@ class AppContainer(private val context: Context) {
     val usageRepository = UsageRepository(api)
     val sessionManager = SessionManager(api)
     val usageStore = UsageStore(context)
-    val usageSync = UsageSync(context, usageRepository, usageStore)
+    val settingsStore = SettingsStore(context)
+    val refreshScheduler = RefreshScheduler(context, settingsStore)
+    val notifier = Notifier(context)
+    val usageSync = UsageSync(context, usageRepository, usageStore, refreshScheduler, notifier)
 
     companion object {
         const val SITE_ORIGIN = "https://www.uplusmvno.com"

@@ -11,7 +11,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.guest01.aldotwidget.data.Quota
+import io.github.guest01.aldotwidget.data.RefreshInterval
 import io.github.guest01.aldotwidget.data.UsageFormat
 import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.sampleSnapshot
@@ -40,6 +43,11 @@ fun UsageScreen(
     onRefresh: () -> Unit,
     onLogout: () -> Unit,
     onAddWidget: () -> Unit,
+    refreshInterval: RefreshInterval,
+    onRefreshIntervalChange: (RefreshInterval) -> Unit,
+    showBatteryTip: Boolean,
+    onOpenBatterySettings: () -> Unit,
+    onDismissBatteryTip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -50,6 +58,9 @@ fun UsageScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Header(snapshot)
+        if (showBatteryTip) {
+            BatteryTipCard(onOpen = onOpenBatterySettings, onDismiss = onDismissBatteryTip)
+        }
         QuotaCard("데이터", snapshot.data, UsageFormat::dataKb)
         QuotaCard("음성통화", snapshot.voice, UsageFormat::voiceSeconds)
         QuotaCard("문자", snapshot.sms, UsageFormat::smsCount)
@@ -72,11 +83,59 @@ fun UsageScreen(
             TextButton(onClick = onLogout) { Text("로그아웃") }
         }
         TextButton(onClick = onAddWidget) { Text("홈 화면에 위젯 추가") }
+        RefreshIntervalSection(refreshInterval, onRefreshIntervalChange)
         Text(
             text = "알닷 실시간 사용량은 참고용이며 전산 반영이 늦을 수 있습니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun RefreshIntervalSection(selected: RefreshInterval, onSelect: (RefreshInterval) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("자동 갱신 주기", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            RefreshInterval.entries.forEach { interval ->
+                FilterChip(
+                    selected = interval == selected,
+                    onClick = { onSelect(interval) },
+                    label = { Text(interval.label) },
+                )
+            }
+        }
+        Text(
+            text = "홈 화면 위젯이 이 주기로 갱신돼요. 휴대전화 상태에 따라 조금 늦어질 수 있어요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * 배터리 최적화 대상이면 자동 갱신이 오래 미뤄지거나 멈출 수 있다 (특히 삼성의 "절전 상태 앱").
+ * 예외 요청 창(REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)은 Play 정책상 일부 앱만 쓸 수 있어서,
+ * 앱 정보 화면을 열어 사용자가 직접 "제한 없음"을 고르게 안내한다.
+ */
+@Composable
+private fun BatteryTipCard(onOpen: () -> Unit, onDismiss: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("자동 갱신이 멈추지 않게 해 주세요", style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = "휴대전화가 이 앱의 배터리 사용을 제한하면 위젯이 갱신되지 않을 수 있어요. " +
+                    "앱 정보에서 배터리를 '제한 없음'으로 바꿔 주세요.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("닫기") }
+                Button(onClick = onOpen) { Text("설정 열기") }
+            }
+        }
     }
 }
 
@@ -159,6 +218,11 @@ private fun UsageScreenPreview() {
             onRefresh = {},
             onLogout = {},
             onAddWidget = {},
+            refreshInterval = RefreshInterval.DEFAULT,
+            onRefreshIntervalChange = {},
+            showBatteryTip = true,
+            onOpenBatterySettings = {},
+            onDismissBatteryTip = {},
         )
     }
 }
