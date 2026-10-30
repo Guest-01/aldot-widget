@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.webkit.WebSettings
 import io.github.guest01.aldotwidget.data.Notifier
+import io.github.guest01.aldotwidget.data.RefreshLog
 import io.github.guest01.aldotwidget.data.SessionManager
 import io.github.guest01.aldotwidget.data.SettingsStore
 import io.github.guest01.aldotwidget.data.UsageRepository
@@ -69,7 +70,7 @@ class AppContainer(private val context: Context) {
     val settingsStore = SettingsStore(context)
     val refreshScheduler = RefreshScheduler(context, settingsStore)
     val notifier = Notifier(context)
-    val usageSync = UsageSync(context, usageRepository, usageStore, refreshScheduler, notifier)
+    val usageSync = UsageSync(context, usageRepository, usageStore, refreshScheduler, notifier, RefreshLog(context))
 
     companion object {
         const val SITE_ORIGIN = "https://www.uplusmvno.com"

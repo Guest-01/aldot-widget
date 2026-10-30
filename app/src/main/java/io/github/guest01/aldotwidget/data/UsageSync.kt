@@ -30,6 +30,7 @@ class UsageSync(
     private val store: UsageStore,
     private val scheduler: RefreshScheduler,
     private val notifier: Notifier,
+    private val refreshLog: RefreshLog,
 ) {
     // 화면과 위젯 버튼이 동시에 눌려도 조회는 한 번에 하나씩
     private val mutex = Mutex()
@@ -50,6 +51,7 @@ class UsageSync(
             SyncStatus.ERROR
         }
         Log.i(TAG, "refresh: $status (background=$fromBackground, previous=$previous)")
+        refreshLog.append(status, fromBackground)
 
         updateWidgets()
         when (status) {
