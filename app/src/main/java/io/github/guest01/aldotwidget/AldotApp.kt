@@ -44,7 +44,9 @@ class AldotApp : Application() {
 class AppContainer(private val context: Context) {
 
     // WebView와 같은 User-Agent를 써서, 서버 입장에서 사이트를 쓰는 브라우저와 같은 클라이언트로 보이게 한다.
-    private val userAgent: String = WebSettings.getDefaultUserAgent(context)
+    // 첫 요청 때 구한다: 여기서 바로 구하면 WebView 초기화가 메인 스레드를 필요로 하는데, 메인 스레드는
+    // 이 객체(lazy)가 다 만들어지기를 기다리고 있어서 서로 기다리며 앱이 멈춘다.
+    private val userAgent: String by lazy { WebSettings.getDefaultUserAgent(context) }
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(WebViewCookieJar())
