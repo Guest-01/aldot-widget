@@ -6,6 +6,7 @@ import androidx.glance.appwidget.updateAll
 import io.github.guest01.aldotwidget.data.api.AldotException
 import io.github.guest01.aldotwidget.widget.UsageWidget
 import io.github.guest01.aldotwidget.work.RefreshScheduler
+import io.github.guest01.aldotwidget.work.SessionKeepAlive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,15 +21,17 @@ internal fun shouldNotifyNeedLogin(previous: SyncStatus, current: SyncStatus, fr
     fromBackground && current == SyncStatus.NEED_LOGIN && previous != SyncStatus.NEED_LOGIN
 
 /**
- * "조회 → 저장 → 위젯 다시 그리기"를 한 번에 하는 곳.
- * 앱 화면의 새로고침, 위젯 버튼, 자동 갱신(주기 작업)이 모두 이 함수를 부른다.
- * 결과에 따라 자동 갱신을 등록·취소하고, 필요하면 재로그인 알림을 보낸다.
+ * "조회 → 저장 → 위젯 다시 그리기"와 로그인 유지를 맡는 곳.
+ * 앱 화면의 새로고침, 위젯 버튼, 자동 갱신(주기 작업), 안전망 알람이 모두 여기를 거친다.
+ * 결과에 따라 자동 갱신과 알람을 등록·취소하고, 필요하면 재로그인 알림을 보낸다.
  */
 class UsageSync(
     private val context: Context,
     private val repository: UsageRepository,
     private val store: UsageStore,
+    private val settings: SettingsStore,
     private val scheduler: RefreshScheduler,
+    private val keepAlive: SessionKeepAlive,
     private val notifier: Notifier,
     private val refreshLog: RefreshLog,
 ) {
@@ -39,6 +42,7 @@ class UsageSync(
     suspend fun refresh(fromBackground: Boolean = false): SyncStatus = mutex.withLock {
         val previous = store.state.first().status
         val status = try {
+            extendSessionIfDue()
             val snapshot = repository.fetchUsage()
             store.update { UsageState(snapshot = snapshot, status = SyncStatus.OK) }
             SyncStatus.OK
@@ -51,7 +55,7 @@ class UsageSync(
             SyncStatus.ERROR
         }
         Log.i(TAG, "refresh: $status (background=$fromBackground, previous=$previous)")
-        refreshLog.append(status, fromBackground)
+        refreshLog.append("${if (fromBackground) "background" else "foreground"} $status")
 
         updateWidgets()
         when (status) {
@@ -61,14 +65,43 @@ class UsageSync(
                 // 주기 작업 자신이 실행될 때는 건드리지 않는다.
                 if (!fromBackground) scheduler.ensureScheduled()
             }
-            SyncStatus.NEED_LOGIN -> {
-                if (shouldNotifyNeedLogin(previous, status, fromBackground)) notifier.notifyNeedLogin()
-                // 반드시 마지막에: 주기 작업 안에서 불렸다면 자기 자신이 취소되어 이후 코드가 중단된다
-                scheduler.cancel()
-            }
+            SyncStatus.NEED_LOGIN -> onSessionLost(notify = shouldNotifyNeedLogin(previous, status, fromBackground))
             else -> Unit
         }
         status
+    }
+
+    /** 안전망 알람이 울렸을 때: 사용량은 조회하지 않고 로그인만 연장한다 (요청 1개). */
+    suspend fun keepSessionAlive(): Unit = mutex.withLock {
+        val previous = store.state.first().status
+        if (previous == SyncStatus.NEED_LOGIN) {
+            keepAlive.cancel()
+            return@withLock
+        }
+        try {
+            repository.extendSession()
+            onSessionExtended()
+            refreshLog.append("alarm extend OK")
+        } catch (e: AldotException.NeedLogin) {
+            refreshLog.append("alarm NEED_LOGIN")
+            store.update { it.copy(status = SyncStatus.NEED_LOGIN, errorMessage = null) }
+            updateWidgets()
+            onSessionLost(notify = true)
+        } catch (e: IOException) {
+            refreshLog.append("alarm ERROR ${e.javaClass.simpleName}")
+            val now = System.currentTimeMillis()
+            if (SessionPolicy.shouldRetryAlarm(settings.sessionExtendedAt(), now)) {
+                keepAlive.arm(SessionPolicy.ALARM_RETRY_MILLIS)
+            }
+        }
+    }
+
+    /** 앱 프로세스가 뜰 때 알람을 다시 맞춘다. 재부팅하면 알람이 사라지기 때문이다. */
+    suspend fun ensureKeepAliveArmed() {
+        val extendedAt = settings.sessionExtendedAt()
+        if (extendedAt == 0L || store.state.first().status == SyncStatus.NEED_LOGIN) return
+        val dueIn = extendedAt + SessionPolicy.nextAlarmDelayMillis() - System.currentTimeMillis()
+        keepAlive.arm(dueIn.coerceAtLeast(MIN_ALARM_DELAY_MILLIS))
     }
 
     /** 로그아웃: 개인정보인 마지막 사용량도 지우고 "로그인 필요" 상태로 둔다. */
@@ -76,6 +109,34 @@ class UsageSync(
         notifier.cancelNeedLogin()
         store.update { UsageState(status = SyncStatus.NEED_LOGIN) }
         updateWidgets()
+        onSessionLost(notify = false)
+    }
+
+    /** 마지막 연장 후 시간이 지났으면 조회 전에 먼저 연장한다. 네트워크 오류는 뒤이은 조회 결과에 맡긴다. */
+    private suspend fun extendSessionIfDue() {
+        if (!SessionPolicy.shouldExtend(settings.sessionExtendedAt(), System.currentTimeMillis())) return
+        try {
+            repository.extendSession()
+            onSessionExtended()
+            refreshLog.append("extend OK")
+        } catch (e: AldotException.NeedLogin) {
+            throw e
+        } catch (e: IOException) {
+            Log.w(TAG, "extend failed: ${e.message}")
+            refreshLog.append("extend ERROR ${e.javaClass.simpleName}")
+        }
+    }
+
+    private suspend fun onSessionExtended() {
+        settings.setSessionExtendedAt(System.currentTimeMillis())
+        keepAlive.arm(SessionPolicy.nextAlarmDelayMillis())
+    }
+
+    private suspend fun onSessionLost(notify: Boolean) {
+        settings.setSessionExtendedAt(0)
+        keepAlive.cancel()
+        if (notify) notifier.notifyNeedLogin()
+        // 반드시 마지막에: 주기 작업 안에서 불렸다면 자기 자신이 취소되어 이후 코드가 중단된다
         scheduler.cancel()
     }
 
@@ -86,5 +147,6 @@ class UsageSync(
 
     private companion object {
         const val TAG = "AldotSync"
+        const val MIN_ALARM_DELAY_MILLIS = 60_000L
     }
 }

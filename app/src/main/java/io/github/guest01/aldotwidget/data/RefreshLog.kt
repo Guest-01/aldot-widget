@@ -20,10 +20,10 @@ class RefreshLog(context: Context) {
     private val file = File(context.filesDir, "refresh_log.txt")
     private val timeFormat = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
 
-    suspend fun append(status: SyncStatus, fromBackground: Boolean) = withContext(Dispatchers.IO) {
+    /** @param event 예: "background OK", "alarm extend OK" */
+    suspend fun append(event: String) = withContext(Dispatchers.IO) {
         runCatching {
-            val source = if (fromBackground) "background" else "foreground"
-            file.appendText("${timeFormat.format(LocalDateTime.now())} $source $status\n")
+            file.appendText("${timeFormat.format(LocalDateTime.now())} $event\n")
             trimIfNeeded()
         }.onFailure { Log.w(TAG, "refresh log failed", it) }
         Unit

@@ -15,6 +15,7 @@ import io.github.guest01.aldotwidget.data.api.TokenRefreshInterceptor
 import io.github.guest01.aldotwidget.data.api.WebViewCookieJar
 import io.github.guest01.aldotwidget.widget.WidgetPreviews
 import io.github.guest01.aldotwidget.work.RefreshScheduler
+import io.github.guest01.aldotwidget.work.SessionKeepAlive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +36,8 @@ class AldotApp : Application() {
     override fun onCreate() {
         super.onCreate()
         appScope.launch { WidgetPreviews.publishIfNeeded(this@AldotApp) }
+        // 재부팅 뒤에는 WorkManager가 앱을 깨우므로 이때 사라진 알람을 다시 맞춘다
+        appScope.launch { container.usageSync.ensureKeepAliveArmed() }
     }
 }
 
@@ -70,7 +73,16 @@ class AppContainer(private val context: Context) {
     val settingsStore = SettingsStore(context)
     val refreshScheduler = RefreshScheduler(context, settingsStore)
     val notifier = Notifier(context)
-    val usageSync = UsageSync(context, usageRepository, usageStore, refreshScheduler, notifier, RefreshLog(context))
+    val usageSync = UsageSync(
+        context = context,
+        repository = usageRepository,
+        store = usageStore,
+        settings = settingsStore,
+        scheduler = refreshScheduler,
+        keepAlive = SessionKeepAlive(context),
+        notifier = notifier,
+        refreshLog = RefreshLog(context),
+    )
 
     companion object {
         const val SITE_ORIGIN = "https://www.uplusmvno.com"

@@ -64,6 +64,28 @@ class AldotApiTest {
     }
 
     @Test
+    fun `로그인 연장은 재발급 주소에 POST한다`() = runBlocking {
+        server.enqueue(json(200, """{"resultCode":"0000","resultMsg":"토큰재발행완료."}"""))
+
+        api.refreshSession()
+
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals(AldotApi.REFRESH_PATH, request.path)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `세션이 끝났으면 로그인 연장은 다시 로그인하라고 알린다`() {
+        server.enqueue(json(401, expired))
+
+        assertThrows(AldotException.NeedLogin::class.java) {
+            runBlocking { api.refreshSession() }
+        }
+        assertEquals(1, server.requestCount) // 재발급 주소를 다시 재발급하려 들지 않는다
+    }
+
+    @Test
     fun `로그아웃은 빈 JSON을 POST하고 빈 응답도 성공으로 본다`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(200)) // 실제 서버도 본문 없이 응답한다
 

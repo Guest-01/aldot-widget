@@ -37,6 +37,19 @@ class AldotApi(
         )
 
     /**
+     * 토큰을 재발급해서 로그인을 2시간 연장한다. 쿠키가 응답으로 새로 내려오고 CookieJar가 저장한다.
+     * 세션이 이미 끝났으면 401이 와서 AldotException.NeedLogin이 된다
+     * (TokenRefreshInterceptor는 이 주소를 다시 재발급하려 들지 않는다).
+     */
+    suspend fun refreshSession() {
+        val request = Request.Builder()
+            .url(baseUrl.resolve(REFRESH_PATH)!!)
+            .post("{}".toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+        send(request)
+    }
+
+    /**
      * 서버 세션을 끊는다. 사이트와 같이 빈 JSON을 POST한다.
      * 서버는 빈 본문으로 응답하므로 본문은 해석하지 않고 상태 코드만 확인한다.
      */

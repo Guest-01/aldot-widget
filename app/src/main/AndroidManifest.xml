@@ -31,6 +31,11 @@
             </intent-filter>
         </activity>
 
+        <!-- 로그인 유지용 안전망 알람을 받는 수신기. 앱 안에서만 쓰므로 외부에 공개하지 않는다. -->
+        <receiver
+            android:name=".work.KeepAliveReceiver"
+            android:exported="false" />
+
         <!-- 홈 화면 위젯. 수신기 하나가 위젯 목록의 항목 하나가 된다.
              exported=true: 런처(다른 앱)가 이 수신기로 위젯 이벤트를 보내야 해서 -->
         <receiver

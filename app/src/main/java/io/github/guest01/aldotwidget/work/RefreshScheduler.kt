@@ -24,7 +24,13 @@ class RefreshScheduler(
     /** 설정된 주기로 등록한다. 이미 있으면 주기·조건만 갱신하고 예약 시점은 유지한다 (UPDATE). */
     suspend fun ensureScheduled() {
         val interval = settings.current().refreshInterval
-        val request = PeriodicWorkRequestBuilder<RefreshWorker>(interval.minutes, TimeUnit.MINUTES)
+        // flex: 주기의 마지막 1/4 안에서 시스템이 편한 때 실행한다. 다른 앱 작업과 묶여 배터리에 유리하고,
+        // 사용자들의 요청이 같은 간격으로 몰리지 않는다.
+        val flexMinutes = interval.minutes / 4
+        val request = PeriodicWorkRequestBuilder<RefreshWorker>(
+            interval.minutes, TimeUnit.MINUTES,
+            flexMinutes, TimeUnit.MINUTES,
+        )
             // 주기 작업은 기본적으로 등록 즉시 첫 실행을 한다. 등록은 항상 방금 조회에 성공한 직후라서 한 주기 미룬다.
             // (UPDATE로 기존 작업을 갱신할 때는 기존 예약 시점이 유지된다)
             .setInitialDelay(interval.minutes, TimeUnit.MINUTES)

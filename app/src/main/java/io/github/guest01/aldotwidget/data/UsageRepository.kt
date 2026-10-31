@@ -19,6 +19,9 @@ class UsageRepository(private val api: AldotApi) {
         return realTime.toSnapshot(line, Instant.now())
     }
 
+    /** 로그인을 2시간 연장한다. */
+    suspend fun extendSession() = api.refreshSession()
+
     /** 로그인된 상태인지 가볍게 확인한다 (회선 정보 API가 성공하는지). */
     suspend fun isLoggedIn(): Boolean = try {
         api.lineInfo()

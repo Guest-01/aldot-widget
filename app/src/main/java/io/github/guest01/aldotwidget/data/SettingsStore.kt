@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -72,9 +73,17 @@ class SettingsStore(context: Context) {
         dataStore.edit { it[KEY_BATTERY_TIP_DISMISSED] = true }
     }
 
+    /** 로그인을 마지막으로 연장한 시각 (epoch 밀리초). 로그인 전이거나 만료됐으면 0 */
+    suspend fun sessionExtendedAt(): Long = dataStore.data.first()[KEY_SESSION_EXTENDED_AT] ?: 0L
+
+    suspend fun setSessionExtendedAt(epochMillis: Long) {
+        dataStore.edit { it[KEY_SESSION_EXTENDED_AT] = epochMillis }
+    }
+
     private companion object {
         val KEY_INTERVAL = stringPreferencesKey("refresh_interval")
         val KEY_NOTIFICATION_ASKED = booleanPreferencesKey("notification_permission_asked")
         val KEY_BATTERY_TIP_DISMISSED = booleanPreferencesKey("battery_tip_dismissed")
+        val KEY_SESSION_EXTENDED_AT = longPreferencesKey("session_extended_at")
     }
 }
