@@ -61,7 +61,8 @@ class KeepAliveReceiver : BroadcastReceiver() {
         val sync = (context.applicationContext as AldotApp).container.usageSync
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                withTimeoutOrNull(TIMEOUT_MS) { sync.keepSessionAlive() }
+                val finished = withTimeoutOrNull(TIMEOUT_MS) { sync.keepSessionAlive() }
+                if (finished == null) sync.recordAlarmTimeout()
             } finally {
                 pending.finish()
             }

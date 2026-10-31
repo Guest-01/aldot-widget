@@ -1,6 +1,7 @@
 package io.github.guest01.aldotwidget.data
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.util.Log
 import androidx.glance.appwidget.updateAll
 import io.github.guest01.aldotwidget.data.api.AldotException
@@ -71,8 +72,14 @@ class UsageSync(
         status
     }
 
+    /** 알람 처리가 제한 시간을 넘겼을 때. 취소되면 아래 기록이 남지 않으므로 따로 남긴다. */
+    suspend fun recordAlarmTimeout() = refreshLog.append("alarm TIMEOUT")
+
     /** 안전망 알람이 울렸을 때: 사용량은 조회하지 않고 로그인만 연장한다 (요청 1개). */
     suspend fun keepSessionAlive(): Unit = mutex.withLock {
+        // 절전 중에 통신이 막혀 있는지 기록해 둔다 (BLOCKED면 알람은 울렸지만 네트워크를 못 쓰는 상태)
+        val network = context.getSystemService(ConnectivityManager::class.java).activeNetworkInfo?.detailedState
+        refreshLog.append("alarm fired net=$network")
         val previous = store.state.first().status
         if (previous == SyncStatus.NEED_LOGIN) {
             keepAlive.cancel()
