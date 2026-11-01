@@ -30,8 +30,8 @@ class SessionPolicyTest {
     fun `알람은 항상 2시간보다 충분히 앞서 울린다`() {
         repeat(1000) { seed ->
             val delay = SessionPolicy.nextAlarmDelayMillis(Random(seed))
-            assertTrue("too early: $delay", delay >= 80 * minute)
-            assertTrue("too late: $delay", delay <= 95 * minute)
+            assertTrue("too early: $delay", delay >= 60 * minute)
+            assertTrue("too late: $delay", delay <= 75 * minute)
         }
     }
 

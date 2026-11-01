@@ -7,18 +7,19 @@ import kotlin.random.Random
  *
  * - 조회할 때: 마지막 연장 후 45분이 지났으면 먼저 연장한다. 토큰이 만료될 때까지 기다리면
  *   제시간에 실행돼도 연장이 안 되는 경우가 생겨 여유가 거의 사라진다.
- * - 안전망 알람: 연장할 때마다 80~95분 뒤로 다시 맞춘다. 평소에는 그 전에 다음 연장이 일어나 울리지 않고,
- *   폰이 오래 쉬어서 자동 갱신이 밀릴 때만 울린다. 범위를 둔 것은 사용자들의 요청이 한 시각에 몰리지 않게 하기 위해서다.
+ * - 안전망 알람: 연장할 때마다 60~75분 뒤로 다시 맞춘다. 폰이 쉬는 동안 알람은 30~40분 늦게 온다(실측:
+ *   80~95분으로 맞췄을 때 113~116분 뒤 도착). 늦게 오고 한 번 실패해도 2시간 안에 재시도할 여유를 둔 값이다.
+ *   범위를 둔 것은 사용자들의 요청이 한 시각에 몰리지 않게 하기 위해서다.
  */
 object SessionPolicy {
     private const val MINUTE = 60_000L
     private const val EXTEND_AFTER = 45 * MINUTE
-    private const val ALARM_MIN = 80 * MINUTE
-    private const val ALARM_MAX = 95 * MINUTE
+    private const val ALARM_MIN = 60 * MINUTE
+    private const val ALARM_MAX = 75 * MINUTE
     private const val SESSION_LIFETIME = 120 * MINUTE
 
     /** 알람 때 네트워크가 안 되면 잠시 뒤 다시 시도한다 */
-    const val ALARM_RETRY_MILLIS = 15 * MINUTE
+    const val ALARM_RETRY_MILLIS = 10 * MINUTE
 
     fun shouldExtend(lastExtendedAt: Long, now: Long): Boolean =
         // 시계가 뒤로 돌아간 경우(lastExtendedAt > now)도 안전하게 연장한다
