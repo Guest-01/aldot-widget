@@ -79,21 +79,25 @@ class UsageSync(
     }
 
     /**
-     * 위젯의 새로고침 버튼. 1분에 한 번만 받는다(RefreshPolicy).
-     * 받으면 "갱신 중"으로 표시만 하고, 실제 조회는 백그라운드 작업에 맡긴다 (위젯 콜백은 오래 실행할 수 없다).
+     * 위젯·앱의 새로고침 버튼. 1분에 한 번만 받는다(RefreshPolicy).
+     * 받으면 "갱신 중"으로 표시해서 위젯과 앱 화면에 같이 보이게 한다.
+     *
+     * @param viaWorker true(위젯): 조회를 백그라운드 작업에 맡긴다 (위젯 콜백은 오래 실행할 수 없다).
+     *                  false(앱 화면): 여기서 바로 조회한다.
      * @return 요청을 받았는지 (1분 제한에 걸리면 false)
      */
-    suspend fun requestRefresh(): Boolean {
+    suspend fun requestRefresh(viaWorker: Boolean): Boolean {
         val now = System.currentTimeMillis()
         if (!RefreshPolicy.canRequest(store.state.first().lastRequestedAt, now)) return false
-        if (isOnline()) {
-            store.update { it.copy(refreshingSince = now, lastRequestedAt = now) }
-            RefreshWorker.enqueueNow(context)
-        } else {
+        if (!isOnline()) {
             // 작업이 네트워크를 기다리는 동안 "갱신 중"이 계속 보이지 않도록 바로 실패로 표시한다
             store.update { it.copy(status = SyncStatus.ERROR, errorMessage = "인터넷에 연결되어 있지 않아요") }
+            updateWidgets()
+            return true
         }
+        store.update { it.copy(refreshingSince = now, lastRequestedAt = now) }
         updateWidgets()
+        if (viaWorker) RefreshWorker.enqueueNow(context) else refresh()
         return true
     }
 

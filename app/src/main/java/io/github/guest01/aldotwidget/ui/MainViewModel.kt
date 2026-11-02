@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.guest01.aldotwidget.AldotApp
 import io.github.guest01.aldotwidget.data.AppSettings
 import io.github.guest01.aldotwidget.data.RefreshInterval
+import io.github.guest01.aldotwidget.data.RefreshPolicy
 import io.github.guest01.aldotwidget.data.SessionManager
 import io.github.guest01.aldotwidget.data.SettingsStore
 import io.github.guest01.aldotwidget.data.SyncStatus
@@ -33,21 +34,28 @@ sealed interface MainUiState {
         val refreshing: Boolean = false,
         /** 새로고침이 실패해도 이전 값은 계속 보여 주고, 오류만 따로 표시한다 */
         val error: String? = null,
+        /** 마지막으로 새로고침을 직접 누른 시각. 1분 동안 버튼을 잠근다 */
+        val lastRequestedAt: Long? = null,
     ) : MainUiState
 
     data class Failed(val message: String) : MainUiState
 }
 
-/** 저장된 상태 + 지금 새로고침 중인지 → 화면 상태. 안드로이드에 의존하지 않아 단위 테스트할 수 있다. */
-internal fun toUiState(stored: UsageState, refreshing: Boolean): MainUiState {
+/**
+ * 저장된 상태 + 지금 새로고침 중인지 → 화면 상태. 안드로이드에 의존하지 않아 단위 테스트할 수 있다.
+ * 위젯 버튼으로 시작된 갱신(refreshingSince)도 앱 화면에 "갱신 중"으로 보인다.
+ */
+internal fun toUiState(stored: UsageState, refreshing: Boolean, now: Long = System.currentTimeMillis()): MainUiState {
     val snapshot = stored.snapshot
+    val anyRefreshing = refreshing || RefreshPolicy.isRefreshing(stored.refreshingSince, now)
     return when {
         // 로그인 직후 첫 조회 중에는 로그인 화면 대신 로딩을 보여 준다
         stored.status == SyncStatus.NEED_LOGIN -> if (refreshing) MainUiState.Loading else MainUiState.NeedLogin
         snapshot != null -> MainUiState.Ready(
             snapshot = snapshot,
-            refreshing = refreshing,
+            refreshing = anyRefreshing,
             error = if (stored.status == SyncStatus.ERROR) stored.errorMessage else null,
+            lastRequestedAt = stored.lastRequestedAt,
         )
         stored.status == SyncStatus.ERROR && !refreshing ->
             MainUiState.Failed(stored.errorMessage ?: "알 수 없는 오류")
@@ -107,6 +115,12 @@ class MainViewModel(
                 refreshing.value = false
             }
         }
+    }
+
+    /** 새로고침 버튼. 1분 제한은 UsageSync가 지킨다 (위젯 버튼과 같은 제한을 공유). */
+    fun refreshFromButton() {
+        if (refreshing.value) return
+        viewModelScope.launch { sync.requestRefresh(viaWorker = false) }
     }
 
     /** 로그인 화면이 "로그인이 끝났는지" 물어볼 때 쓴다. */

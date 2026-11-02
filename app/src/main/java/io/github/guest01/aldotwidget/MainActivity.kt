@@ -3,6 +3,7 @@ package io.github.guest01.aldotwidget
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,10 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,16 +25,18 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import io.github.guest01.aldotwidget.data.RefreshInterval
 import io.github.guest01.aldotwidget.ui.MainUiState
 import io.github.guest01.aldotwidget.ui.MainViewModel
 import io.github.guest01.aldotwidget.ui.batteryExemptionIntent
+import io.github.guest01.aldotwidget.ui.canPostNotifications
 import io.github.guest01.aldotwidget.ui.isIgnoringBatteryOptimizations
+import io.github.guest01.aldotwidget.ui.notificationSettingsIntent
 import io.github.guest01.aldotwidget.ui.login.LoginScreen
 import io.github.guest01.aldotwidget.ui.main.ErrorScreen
 import io.github.guest01.aldotwidget.ui.main.LoadingScreen
-import io.github.guest01.aldotwidget.ui.main.UsageScreen
+import io.github.guest01.aldotwidget.ui.main.HomeScreen
 import io.github.guest01.aldotwidget.ui.onboarding.OnboardingScreen
+import io.github.guest01.aldotwidget.ui.settings.SettingsScreen
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
 import io.github.guest01.aldotwidget.widget.SquareWidgetReceiver
 import kotlinx.coroutines.launch
@@ -48,7 +53,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 상태에 따라 로딩 / 로그인 / 첫 실행 안내 / 사용량 / 오류 화면 중 하나를 그린다. */
+/** 상태에 따라 로딩 / 로그인 / 첫 실행 안내 / 홈·설정 / 오류 화면 중 하나를 그린다. */
 @Composable
 private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -56,14 +61,34 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 배터리 예외 여부. 설정 화면이나 요청 창에서 돌아온 뒤 바로 반영되도록 화면으로 돌아올 때마다 다시 확인한다.
+    // 배터리 예외와 알림 허용 여부. 설정 화면이나 요청 창에서 돌아온 뒤 바로 반영되도록 화면으로 돌아올 때마다 다시 확인한다.
     var ignoringBatteryOptimizations by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+    var notificationsOn by remember { mutableStateOf(canPostNotifications(context)) }
     LifecycleResumeEffect(Unit) {
         ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(context)
+        notificationsOn = canPostNotifications(context)
         onPauseOrDispose { }
     }
     val batteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(context)
+    }
+
+    // 홈 ↔ 설정. 화면이 둘뿐이라 내비게이션 라이브러리 없이 상태 하나로 바꾼다 (회전해도 유지).
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showSettings) { showSettings = false }
+    // 로그아웃 뒤 다시 로그인하면 설정이 아니라 홈으로 돌아오게 한다
+    val needLogin = state is MainUiState.NeedLogin
+    LaunchedEffect(needLogin) { if (needLogin) showSettings = false }
+
+    val addWidget: () -> Unit = {
+        // 런처에 "이 위젯을 홈 화면에 추가할까요?" 창을 띄워 달라고 요청한다 (Android 8+ 표준 기능)
+        scope.launch {
+            val supported = GlanceAppWidgetManager(context)
+                .requestPinGlanceAppWidget(SquareWidgetReceiver::class.java)
+            if (!supported) {
+                Toast.makeText(context, "이 홈 화면 앱은 위젯 추가 요청을 지원하지 않아요", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // Scaffold가 상태 표시줄·내비게이션 바 높이를 innerPadding으로 알려 준다 (edge-to-edge 대응)
@@ -83,26 +108,26 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                     onFinished = viewModel::completeOnboarding,
                     modifier = modifier,
                 )
-                else -> UsageScreen(
-                    snapshot = s.snapshot,
-                    refreshing = s.refreshing,
-                    error = s.error,
-                    onRefresh = viewModel::refresh,
-                    onLogout = viewModel::logout,
-                    onAddWidget = {
-                        // 런처에 "이 위젯을 홈 화면에 추가할까요?" 창을 띄워 달라고 요청한다 (Android 8+ 표준 기능)
-                        scope.launch {
-                            val supported = GlanceAppWidgetManager(context)
-                                .requestPinGlanceAppWidget(SquareWidgetReceiver::class.java)
-                            if (!supported) {
-                                Toast.makeText(context, "이 홈 화면 앱은 위젯 추가 요청을 지원하지 않아요", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
+                showSettings -> SettingsScreen(
                     refreshInterval = current.refreshInterval,
                     onRefreshIntervalChange = viewModel::setRefreshInterval,
+                    batteryOn = ignoringBatteryOptimizations,
+                    onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
+                    notificationsOn = notificationsOn,
+                    onFixNotifications = { context.startActivity(notificationSettingsIntent(context)) },
+                    phoneMasked = s.snapshot.phoneMasked,
+                    onAddWidget = addWidget,
+                    onLogout = viewModel::logout,
+                    onBack = { showSettings = false },
+                    modifier = modifier,
+                )
+                else -> HomeScreen(
+                    ready = s,
                     showBatteryWarning = !ignoringBatteryOptimizations,
                     onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
+                    onRefresh = viewModel::refreshFromButton,
+                    onAddWidget = addWidget,
+                    onOpenSettings = { showSettings = true },
                     modifier = modifier,
                 )
             }

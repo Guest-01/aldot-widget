@@ -9,6 +9,6 @@ import io.github.guest01.aldotwidget.AldotApp
 /** 위젯의 새로고침 버튼. 직접 조회하지 않고 "갱신 중" 표시와 백그라운드 작업 예약만 한다 (위젯 콜백은 실행 시간이 짧다). */
 class RefreshAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        (context.applicationContext as AldotApp).container.usageSync.requestRefresh()
+        (context.applicationContext as AldotApp).container.usageSync.requestRefresh(viaWorker = true)
     }
 }
