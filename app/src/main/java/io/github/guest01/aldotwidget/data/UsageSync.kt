@@ -10,6 +10,7 @@ import io.github.guest01.aldotwidget.widget.UsageWidget
 import io.github.guest01.aldotwidget.work.RefreshScheduler
 import io.github.guest01.aldotwidget.work.RefreshWorker
 import io.github.guest01.aldotwidget.work.SessionKeepAlive
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -43,6 +44,7 @@ class UsageSync(
 
     /** @param fromBackground 자동 갱신(주기 작업)에서 불렸는지 */
     suspend fun refresh(fromBackground: Boolean = false): SyncStatus = mutex.withLock {
+        if (settings.demoMode()) return@withLock demoRefresh()
         val previous = store.state.first().status
         val status = try {
             extendSessionIfDue()
@@ -112,6 +114,7 @@ class UsageSync(
 
     /** 안전망 알람이 울렸을 때: 사용량은 조회하지 않고 로그인만 연장한다 (요청 1개). */
     suspend fun keepSessionAlive(): Unit = mutex.withLock {
+        if (settings.demoMode()) return@withLock
         // 절전 중에 통신이 막혀 있는지 기록해 둔다 (BLOCKED면 알람은 울렸지만 네트워크를 못 쓰는 상태)
         val network = context.getSystemService(ConnectivityManager::class.java).activeNetworkInfo?.detailedState
         refreshLog.append("alarm fired net=$network")
@@ -182,6 +185,17 @@ class UsageSync(
         scheduler.cancel()
     }
 
+    /** 샘플 데이터 모드의 새로고침: 서버에 묻지 않고 잠깐 기다린 뒤 가짜 데이터의 시각만 새로 바꾼다. */
+    private suspend fun demoRefresh(): SyncStatus {
+        delay(DEMO_REFRESH_MILLIS)
+        store.update {
+            it.copy(snapshot = sampleSnapshot(), status = SyncStatus.OK, errorMessage = null, refreshingSince = null)
+        }
+        refreshLog.append("demo OK")
+        updateWidgets()
+        return SyncStatus.OK
+    }
+
     /** 테마 색처럼 사용량이 아닌 것이 바뀌었을 때도 홈 화면의 위젯을 다시 그린다. */
     suspend fun redrawWidgets() = updateWidgets()
 
@@ -193,5 +207,6 @@ class UsageSync(
     private companion object {
         const val TAG = "AldotSync"
         const val MIN_ALARM_DELAY_MILLIS = 60_000L
+        const val DEMO_REFRESH_MILLIS = 1_200L
     }
 }

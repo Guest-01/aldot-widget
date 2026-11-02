@@ -87,8 +87,18 @@ class SettingsStore(context: Context) {
         dataStore.edit { it[KEY_THEME_COLOR] = color.name }
     }
 
-    suspend fun setOnboardingCompleted() {
-        dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = true }
+    suspend fun setOnboardingCompleted(completed: Boolean = true) {
+        dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
+    }
+
+    /**
+     * 샘플 데이터 모드: 알닷 서버 대신 가짜 데이터로 앱과 위젯을 그린다 (화면 확인용).
+     * 개발용 앱에만 있는 DemoReceiver(src/debug)로만 켤 수 있다. 배포용 앱에서는 항상 false.
+     */
+    suspend fun demoMode(): Boolean = dataStore.data.first()[KEY_DEMO_MODE] ?: false
+
+    suspend fun setDemoMode(on: Boolean) {
+        dataStore.edit { it[KEY_DEMO_MODE] = on }
     }
 
     /** 로그인을 마지막으로 연장한 시각 (epoch 밀리초). 로그인 전이거나 만료됐으면 0 */
@@ -102,6 +112,7 @@ class SettingsStore(context: Context) {
         val KEY_INTERVAL = stringPreferencesKey("refresh_interval")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_THEME_COLOR = stringPreferencesKey("theme_color")
+        val KEY_DEMO_MODE = booleanPreferencesKey("demo_mode")
         val KEY_SESSION_EXTENDED_AT = longPreferencesKey("session_extended_at")
     }
 }

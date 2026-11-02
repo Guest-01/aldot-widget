@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.AldotWidget" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 앱을 켤 때 잠깐 보이는 창의 색. 화면은 Compose 테마(AldotWidgetTheme)가 그리지만,
+         그 전에 보이는 시작 화면과 바탕은 이 테마를 따른다. 다크 모드는 values-night에 따로 둔다. -->
+    <style name="Theme.AldotWidget" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
 </resources>

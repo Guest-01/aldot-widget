@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 개발용 앱(debug)에만 합쳐지는 매니페스트. 배포용 앱에는 들어가지 않는다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- 샘플 데이터 모드 스위치 (DemoReceiver 설명 참고).
+             exported=true지만 DUMP 권한이 있어야 보낼 수 있어서 adb shell만 보낼 수 있다. -->
+        <receiver
+            android:name=".debug.DemoReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+
+</manifest>

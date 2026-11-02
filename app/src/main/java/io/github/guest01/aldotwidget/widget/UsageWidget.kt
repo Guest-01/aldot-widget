@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.ColorFilter
@@ -244,24 +245,35 @@ private fun Compact(snapshot: UsageSnapshot, status: WidgetStatus, size: DpSize)
 /** 2×2: 데이터 크게 + 막대, 음성·문자 한 줄씩, 맨 아래 상태 */
 @Composable
 private fun Square(snapshot: UsageSnapshot, status: WidgetStatus, size: DpSize) {
+    // Glance는 Row·Column·Box 하나에 자식을 10개까지만 그리고 나머지는 버린다.
+    // 그래서 데이터 / 음성·문자 / 상태를 묶음으로 나눈다 (한 Column에 다 넣었을 때 맨 아래 상태 줄이 사라졌다).
     Column(GlanceModifier.fillMaxSize().padding(CONTENT_PADDING)) {
-        // 첫 줄은 오른쪽 위 새로고침 아이콘과 높이를 맞춘다
-        Box(GlanceModifier.height(20.dp), contentAlignment = Alignment.CenterStart) {
-            Text(snapshot.partnerName ?: "알닷", style = subStyle(11), maxLines = 1)
+        Column(GlanceModifier.fillMaxWidth()) {
+            // 첫 줄은 오른쪽 위 새로고침 아이콘과 높이를 맞춘다.
+            // 낮은 2×2(200dp 미만)에서 글자를 키우면 맨 아래 상태 줄이 잘려서, 그때는 통신사 이름 줄을 뺀다.
+            if (size.height >= 200.dp) {
+                Box(GlanceModifier.height(20.dp), contentAlignment = Alignment.CenterStart) {
+                    Text(snapshot.partnerName ?: "알닷", style = subStyle(11), maxLines = 1)
+                }
+                Spacer(GlanceModifier.height(6.dp))
+                Text("데이터 남음", style = subStyle(11))
+            } else {
+                Box(GlanceModifier.height(20.dp), contentAlignment = Alignment.CenterStart) {
+                    Text("데이터 남음", style = subStyle(11))
+                }
+            }
+            val data = snapshot.data
+            Text(data?.let { UsageFormat.dataKb(it.remaining) } ?: "정보 없음", style = valueStyle(24), maxLines = 1)
+            if (data != null) {
+                Spacer(GlanceModifier.height(6.dp))
+                Bar(data.remainingRatio, width = size.width - CONTENT_PADDING * 2)
+            }
         }
-        // 가장 낮은 2×2(180dp)에서도 맨 아래 상태 줄이 잘리지 않는 간격이다
-        Spacer(GlanceModifier.height(6.dp))
-        Text("데이터 남음", style = subStyle(11))
-        val data = snapshot.data
-        Text(data?.let { UsageFormat.dataKb(it.remaining) } ?: "정보 없음", style = valueStyle(24), maxLines = 1)
-        if (data != null) {
-            Spacer(GlanceModifier.height(6.dp))
-            Bar(data.remainingRatio, width = size.width - CONTENT_PADDING * 2)
+        Column(GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
+            SmallQuotaLine("음성", snapshot.voice, UsageFormat::voiceSeconds)
+            Spacer(GlanceModifier.height(4.dp))
+            SmallQuotaLine("문자", snapshot.sms, UsageFormat::smsCount)
         }
-        Spacer(GlanceModifier.height(10.dp))
-        SmallQuotaLine("음성", snapshot.voice, UsageFormat::voiceSeconds)
-        Spacer(GlanceModifier.height(4.dp))
-        SmallQuotaLine("문자", snapshot.sms, UsageFormat::smsCount)
         Spacer(GlanceModifier.defaultWeight())
         StatusLine(status)
     }
@@ -433,10 +445,25 @@ private fun GlanceModifier.launcherCorner(): GlanceModifier =
         this
     }
 
+/**
+ * 위젯 글자 크기. 폰의 글자 크기 설정을 따르되 115%까지만 키운다.
+ * 위젯 칸은 글자 설정과 상관없이 크기가 그대로라, 더 키우면 1×1에서 "로그인 …"처럼 잘린다.
+ */
+@Composable
+private fun widgetSp(size: Int): TextUnit {
+    val fontScale = LocalContext.current.resources.configuration.fontScale
+    return (size * minOf(fontScale, MAX_FONT_SCALE) / fontScale).sp
+}
+
+private const val MAX_FONT_SCALE = 1.15f
+
+@Composable
 private fun valueStyle(sizeSp: Int) =
-    TextStyle(color = WidgetColors.text, fontSize = sizeSp.sp, fontWeight = FontWeight.Bold)
+    TextStyle(color = WidgetColors.text, fontSize = widgetSp(sizeSp), fontWeight = FontWeight.Bold)
 
-private fun subStyle(sizeSp: Int) = TextStyle(color = WidgetColors.sub, fontSize = sizeSp.sp)
+@Composable
+private fun subStyle(sizeSp: Int) = TextStyle(color = WidgetColors.sub, fontSize = widgetSp(sizeSp))
 
+@Composable
 private fun statusStyle(status: WidgetStatus) =
-    TextStyle(color = if (status.failed && !status.refreshing) WidgetColors.error else WidgetColors.sub, fontSize = 10.sp)
+    TextStyle(color = if (status.failed && !status.refreshing) WidgetColors.error else WidgetColors.sub, fontSize = widgetSp(10))

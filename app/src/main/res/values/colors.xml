@@ -7,4 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- 앱 화면 바탕과 같은 색 (Color.kt의 LightAppColors.bg). 다크 모드 값은 values-night -->
+    <color name="app_background">#FFFFFFFF</color>
 </resources>

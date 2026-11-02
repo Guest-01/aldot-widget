@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -94,34 +95,43 @@ fun HomeScreen(
                 }
             }
 
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    snapshot.planName ?: "요금제", fontSize = 22.sp, lineHeight = 30.sp,
-                    fontWeight = FontWeight.ExtraBold, color = colors.text,
-                )
-                Text(HomeText.planSubtitle(snapshot), fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 4.dp))
-
-                if (showBatteryWarning) BatteryBanner(onFixBattery, Modifier.padding(top = 16.dp))
-
-                DataCard(snapshot.data, Modifier.padding(top = 16.dp))
-                Row(
-                    Modifier.padding(top = 12.dp).fillMaxWidth().height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+            // 내용이 화면에 다 들어가면 "위젯 추가"를 바닥에 붙이고, 넘치면(큰 글자 등) 전체를 한 번에 스크롤한다.
+            // 바닥을 따로 고정하면 넘칠 때 새로고침 줄이 그 뒤로 숨는다.
+            BoxWithConstraints(Modifier.weight(1f)) {
+                Column(
+                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight),
+                    verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    SmallQuotaCard("음성", snapshot.voice, UsageFormat::voiceSeconds, HomeText::voiceCaption, Modifier.weight(1f))
-                    SmallQuotaCard("문자", snapshot.sms, UsageFormat::smsCount, HomeText::smsCaption, Modifier.weight(1f))
-                }
-                StatusRow(status, onRefresh, Modifier.padding(top = 12.dp))
-                Spacer(Modifier.height(16.dp))
-            }
+                    Column {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            snapshot.planName ?: "요금제", fontSize = 22.sp, lineHeight = 30.sp,
+                            fontWeight = FontWeight.ExtraBold, color = colors.text,
+                        )
+                        Text(HomeText.planSubtitle(snapshot), fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 4.dp))
 
-            AddWidgetRow(onAddWidget)
-            Text(
-                "알닷에 공개된 실시간 사용량이에요.\n통신사 전산 반영은 조금 늦을 수 있어요.",
-                fontSize = 12.sp, lineHeight = 18.sp, color = colors.muted, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 24.dp),
-            )
+                        if (showBatteryWarning) BatteryBanner(onFixBattery, Modifier.padding(top = 16.dp))
+
+                        DataCard(snapshot.data, Modifier.padding(top = 16.dp))
+                        Row(
+                            Modifier.padding(top = 12.dp).fillMaxWidth().height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            SmallQuotaCard("음성", snapshot.voice, UsageFormat::voiceSeconds, HomeText::voiceCaption, Modifier.weight(1f))
+                            SmallQuotaCard("문자", snapshot.sms, UsageFormat::smsCount, HomeText::smsCaption, Modifier.weight(1f))
+                        }
+                        StatusRow(status, onRefresh, Modifier.padding(top = 12.dp))
+                    }
+                    Column(Modifier.padding(top = 16.dp)) {
+                        AddWidgetRow(onAddWidget)
+                        Text(
+                            "알닷에 공개된 실시간 사용량이에요.\n통신사 전산 반영은 조금 늦을 수 있어요.",
+                            fontSize = 12.sp, lineHeight = 18.sp, color = colors.muted, textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 24.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -253,8 +253,8 @@ private fun StatusLine(label: String, on: Boolean, onFix: () -> Unit) {
             Icon(painterResource(R.drawable.ic_error_outline), contentDescription = null, tint = colors.warn, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text("꺼짐", fontSize = 14.sp, color = colors.warn)
-            // 글자 버튼은 최소 폭(58dp)이 있어 짧은 "켜기"는 양옆 여백이 넓다. 글자 끝이 다른 줄의 값과 맞도록 민다
-            TextButton(onClick = onFix, modifier = Modifier.offset(x = 16.dp)) {
+            // 글자 버튼의 최소 폭(58dp)을 없애고(widthIn) 안쪽 여백(12dp)만큼 밀어서, 글자 크기와 상관없이 글자 끝을 다른 줄의 값과 맞춘다
+            TextButton(onClick = onFix, modifier = Modifier.offset(x = 12.dp).widthIn(min = 1.dp)) {
                 Text("켜기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent)
             }
         }

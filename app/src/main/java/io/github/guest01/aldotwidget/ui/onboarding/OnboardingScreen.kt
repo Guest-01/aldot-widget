@@ -3,6 +3,7 @@ package io.github.guest01.aldotwidget.ui.onboarding
 import android.Manifest
 import android.content.Context
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -53,11 +54,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -128,6 +131,8 @@ fun OnboardingScreen(
     var index by rememberSaveable { mutableIntStateOf(0) }
     var requestedWidget by rememberSaveable { mutableStateOf<String?>(null) }
     val next: () -> Unit = { index++ }
+    // 폰의 뒤로 가기: 이전 단계로. 첫 단계에서는 로그인을 되돌릴 수 없으니 기본 동작(앱 닫기)에 맡긴다
+    BackHandler(enabled = index > 0) { index-- }
     fun position() = StepPosition(number = index + 2, total = steps.size + 1)
 
     when (steps.getOrNull(index)) {
@@ -305,14 +310,14 @@ private fun WidgetOption(choice: WidgetChoice, selected: Boolean, onClick: () ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             MiniRing(26.dp, 3.5.dp)
                             Column(Modifier.padding(start = 7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("5.7 GB", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = colors.text)
+                                Text("5.7 GB", fontSize = pictureSp(10), fontWeight = FontWeight.ExtraBold, color = colors.text, maxLines = 1)
                                 Box(Modifier.size(32.dp, 3.dp).clip(CircleShape).background(colors.line))
                             }
                         }
                     }
                     WidgetChoice.SQUARE -> MiniCard(Modifier.size(58.dp)) {
                         Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("5.7 GB", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = colors.text)
+                            Text("5.7 GB", fontSize = pictureSp(10), fontWeight = FontWeight.ExtraBold, color = colors.text, maxLines = 1)
                             Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(colors.line)) {
                                 Box(Modifier.fillMaxWidth(0.38f).fillMaxHeight().clip(CircleShape).background(colors.accent))
                             }
@@ -336,6 +341,10 @@ private fun MiniCard(modifier: Modifier, content: @Composable () -> Unit) {
         content()
     }
 }
+
+/** 그림 속 글자 크기. 읽으라는 글자가 아니라 그림의 일부라서, 폰의 글자 크기 설정과 상관없이 고정한다. */
+@Composable
+private fun pictureSp(size: Int): TextUnit = with(LocalDensity.current) { size.dp.toSp() }
 
 /** 위젯 그림 속 작은 고리 (남은 38%) */
 @Composable
@@ -447,8 +456,8 @@ private fun SummaryLine(label: String, ok: Boolean, value: String, detail: Strin
             if (warn && detail != null) Text(detail, fontSize = 12.sp, color = colors.muted)
         }
         if (fix != null) {
-            // 글자 버튼은 최소 폭(58dp)이 있어 짧은 "켜기"는 양옆 여백이 넓다. 글자 끝이 다른 줄의 값과 맞도록 민다
-            TextButton(onClick = fix, modifier = Modifier.offset(x = 16.dp)) {
+            // 글자 버튼의 최소 폭(58dp)을 없애고(widthIn) 안쪽 여백(12dp)만큼 밀어서, 글자 크기와 상관없이 글자 끝을 다른 줄의 값과 맞춘다
+            TextButton(onClick = fix, modifier = Modifier.offset(x = 12.dp).widthIn(min = 1.dp)) {
                 Text("켜기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent)
             }
         } else {
