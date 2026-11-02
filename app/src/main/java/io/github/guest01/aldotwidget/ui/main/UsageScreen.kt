@@ -45,9 +45,8 @@ fun UsageScreen(
     onAddWidget: () -> Unit,
     refreshInterval: RefreshInterval,
     onRefreshIntervalChange: (RefreshInterval) -> Unit,
-    showBatteryTip: Boolean,
-    onOpenBatterySettings: () -> Unit,
-    onDismissBatteryTip: () -> Unit,
+    showBatteryWarning: Boolean,
+    onFixBattery: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -58,8 +57,8 @@ fun UsageScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Header(snapshot)
-        if (showBatteryTip) {
-            BatteryTipCard(onOpen = onOpenBatterySettings, onDismiss = onDismissBatteryTip)
+        if (showBatteryWarning) {
+            BatteryWarningBanner(onFix = onFixBattery)
         }
         QuotaCard("데이터", snapshot.data, UsageFormat::dataKb)
         QuotaCard("음성통화", snapshot.voice, UsageFormat::voiceSeconds)
@@ -114,27 +113,32 @@ private fun RefreshIntervalSection(selected: RefreshInterval, onSelect: (Refresh
 }
 
 /**
- * 배터리 최적화 대상이면 자동 갱신이 오래 미뤄지거나 멈출 수 있다 (특히 삼성의 "절전 상태 앱").
- * 예외 요청 창(REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)은 Play 정책상 일부 앱만 쓸 수 있어서,
- * 앱 정보 화면을 열어 사용자가 직접 "제한 없음"을 고르게 안내한다.
+ * 배터리 예외가 없으면 밤에 로그인이 풀린다(실기기 확인: 절전 중 통신이 막혀 연장 실패).
+ * 위젯이 제대로 동작하는 데 필요한 설정이라 닫을 수 없게 하고, 설정되면 저절로 사라진다.
  */
 @Composable
-private fun BatteryTipCard(onOpen: () -> Unit, onDismiss: () -> Unit) {
+private fun BatteryWarningBanner(onFix: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("자동 갱신이 멈추지 않게 해 주세요", style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = "휴대전화가 이 앱의 배터리 사용을 제한하면 위젯이 갱신되지 않을 수 있어요. " +
-                    "앱 정보에서 배터리를 '제한 없음'으로 바꿔 주세요.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onDismiss) { Text("닫기") }
-                Button(onClick = onOpen) { Text("설정 열기") }
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "밤에 로그인이 풀릴 수 있어요",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text(
+                    "배터리 사용을 '제한 없음'으로 허용해 주세요",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
             }
+            TextButton(onClick = onFix) { Text("허용하기") }
         }
     }
 }
@@ -220,9 +224,8 @@ private fun UsageScreenPreview() {
             onAddWidget = {},
             refreshInterval = RefreshInterval.DEFAULT,
             onRefreshIntervalChange = {},
-            showBatteryTip = true,
-            onOpenBatterySettings = {},
-            onDismissBatteryTip = {},
+            showBatteryWarning = true,
+            onFixBattery = {},
         )
     }
 }

@@ -77,8 +77,9 @@ class MainViewModel(
         // 화면이 구독하는 동안만 흐름을 유지 (화면 회전 같은 5초 미만의 끊김은 유지)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState.Loading)
 
-    val settings: StateFlow<AppSettings> = settingsStore.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+    /** 저장소에서 읽기 전에는 null. 읽기 전 기본값(안내 미완료)으로 안내 화면이 잠깐 깜빡이는 것을 막는다. */
+    val settings: StateFlow<AppSettings?> = settingsStore.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun setRefreshInterval(interval: RefreshInterval) {
         viewModelScope.launch {
@@ -88,12 +89,8 @@ class MainViewModel(
         }
     }
 
-    fun onNotificationPermissionAsked() {
-        viewModelScope.launch { settingsStore.setNotificationPermissionAsked() }
-    }
-
-    fun dismissBatteryTip() {
-        viewModelScope.launch { settingsStore.setBatteryTipDismissed() }
+    fun completeOnboarding() {
+        viewModelScope.launch { settingsStore.setOnboardingCompleted() }
     }
 
     init {

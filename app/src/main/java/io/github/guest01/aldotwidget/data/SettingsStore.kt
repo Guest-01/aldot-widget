@@ -34,10 +34,8 @@ enum class RefreshInterval(val minutes: Long, val label: String) {
 
 data class AppSettings(
     val refreshInterval: RefreshInterval = RefreshInterval.DEFAULT,
-    /** 알림 권한을 한 번 물어봤는지 (거절한 사람에게 매번 다시 묻지 않기 위해) */
-    val notificationPermissionAsked: Boolean = false,
-    /** 절전 안내 카드를 닫았는지 */
-    val batteryTipDismissed: Boolean = false,
+    /** 첫 로그인 뒤 단계별 안내(알림·배터리·위젯)를 끝냈는지. 한 번만 보여 준다. */
+    val onboardingCompleted: Boolean = false,
 )
 
 // 사용량(usage)과 다른 파일에 저장한다. 로그아웃할 때 사용량은 지우지만 설정은 남긴다.
@@ -54,8 +52,7 @@ class SettingsStore(context: Context) {
                 refreshInterval = prefs[KEY_INTERVAL]
                     ?.let { name -> RefreshInterval.entries.firstOrNull { it.name == name } }
                     ?: RefreshInterval.DEFAULT,
-                notificationPermissionAsked = prefs[KEY_NOTIFICATION_ASKED] ?: false,
-                batteryTipDismissed = prefs[KEY_BATTERY_TIP_DISMISSED] ?: false,
+                onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
             )
         }
 
@@ -65,12 +62,8 @@ class SettingsStore(context: Context) {
         dataStore.edit { it[KEY_INTERVAL] = interval.name }
     }
 
-    suspend fun setNotificationPermissionAsked() {
-        dataStore.edit { it[KEY_NOTIFICATION_ASKED] = true }
-    }
-
-    suspend fun setBatteryTipDismissed() {
-        dataStore.edit { it[KEY_BATTERY_TIP_DISMISSED] = true }
+    suspend fun setOnboardingCompleted() {
+        dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = true }
     }
 
     /** 로그인을 마지막으로 연장한 시각 (epoch 밀리초). 로그인 전이거나 만료됐으면 0 */
@@ -82,8 +75,7 @@ class SettingsStore(context: Context) {
 
     private companion object {
         val KEY_INTERVAL = stringPreferencesKey("refresh_interval")
-        val KEY_NOTIFICATION_ASKED = booleanPreferencesKey("notification_permission_asked")
-        val KEY_BATTERY_TIP_DISMISSED = booleanPreferencesKey("battery_tip_dismissed")
+        val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_SESSION_EXTENDED_AT = longPreferencesKey("session_extended_at")
     }
 }

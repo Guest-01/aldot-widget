@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+: 재로그인 알림. 설치만으로는 허용되지 않고, 앱이 실행 중에 사용자에게 물어봐야 한다. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 배터리 최적화 예외 요청 창을 띄우기 위한 권한. 설치 시 자동 허용되고, 실제 허용은 사용자가 창에서 한다.
+         Play 스토어에 올릴 때는 이 권한과 요청 창을 빼야 한다 (ui/SystemSettings.kt 참고). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- allowBackup=false: 로그인 쿠키가 클라우드 백업으로 다른 기기에 복원되지 않게 한다.
          Android 12+의 기기 간 이전은 dataExtractionRules에서 따로 막는다. -->
