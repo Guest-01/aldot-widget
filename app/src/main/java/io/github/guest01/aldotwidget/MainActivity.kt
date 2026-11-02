@@ -25,6 +25,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.guest01.aldotwidget.data.ThemeColor
 import io.github.guest01.aldotwidget.ui.MainUiState
 import io.github.guest01.aldotwidget.ui.MainViewModel
 import io.github.guest01.aldotwidget.ui.batteryExemptionIntent
@@ -36,6 +37,9 @@ import io.github.guest01.aldotwidget.ui.main.ErrorScreen
 import io.github.guest01.aldotwidget.ui.main.LoadingScreen
 import io.github.guest01.aldotwidget.ui.main.HomeScreen
 import io.github.guest01.aldotwidget.ui.onboarding.OnboardingScreen
+import io.github.guest01.aldotwidget.ui.onboarding.StepPosition
+import io.github.guest01.aldotwidget.ui.onboarding.WelcomeScreen
+import io.github.guest01.aldotwidget.ui.onboarding.onboardingSteps
 import io.github.guest01.aldotwidget.ui.settings.SettingsScreen
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
 import io.github.guest01.aldotwidget.widget.SquareWidgetReceiver
@@ -46,9 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            AldotWidgetTheme {
-                AldotRoot()
-            }
+            AldotRoot()
         }
     }
 }
@@ -91,47 +93,70 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
         }
     }
 
-    // Scaffold가 상태 표시줄·내비게이션 바 높이를 innerPadding으로 알려 준다 (edge-to-edge 대응)
-    Scaffold(Modifier.fillMaxSize()) { innerPadding ->
-        val modifier = Modifier.padding(innerPadding)
-        val current = settings
-        when (val s = state) {
-            MainUiState.Loading -> LoadingScreen(modifier)
-            MainUiState.NeedLogin -> LoginScreen(
-                checkLoggedIn = viewModel::isLoggedIn,
-                onLoggedIn = viewModel::onLoginCompleted,
-                modifier = modifier,
-            )
-            is MainUiState.Ready -> when {
-                current == null -> LoadingScreen(modifier)
-                !current.onboardingCompleted -> OnboardingScreen(
-                    onFinished = viewModel::completeOnboarding,
-                    modifier = modifier,
-                )
-                showSettings -> SettingsScreen(
-                    refreshInterval = current.refreshInterval,
-                    onRefreshIntervalChange = viewModel::setRefreshInterval,
-                    batteryOn = ignoringBatteryOptimizations,
-                    onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
-                    notificationsOn = notificationsOn,
-                    onFixNotifications = { context.startActivity(notificationSettingsIntent(context)) },
-                    phoneMasked = s.snapshot.phoneMasked,
-                    onAddWidget = addWidget,
-                    onLogout = viewModel::logout,
-                    onBack = { showSettings = false },
-                    modifier = modifier,
-                )
-                else -> HomeScreen(
-                    ready = s,
-                    showBatteryWarning = !ignoringBatteryOptimizations,
-                    onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
-                    onRefresh = viewModel::refreshFromButton,
-                    onAddWidget = addWidget,
-                    onOpenSettings = { showSettings = true },
-                    modifier = modifier,
-                )
+    // 첫 실행에서 환영 화면을 지나 로그인으로 갔는지 (로그인 화면의 뒤로 가기로 돌아올 수 있다)
+    var welcomeDone by rememberSaveable { mutableStateOf(false) }
+    // 첫 실행 로그인 화면에서 시스템 뒤로 가기: 앱을 닫지 않고 환영 화면으로 (사이트 안에서 뒤로 갈 곳이 있으면 그쪽이 먼저)
+    BackHandler(enabled = needLogin && welcomeDone && settings?.onboardingCompleted == false) { welcomeDone = false }
+
+    // 테마 색은 설정에 저장돼 있어서, 고르는 즉시 앱 전체가 다시 그려진다
+    AldotWidgetTheme(themeColor = settings?.themeColor ?: ThemeColor.DEFAULT) {
+        // Scaffold가 상태 표시줄·내비게이션 바 높이를 innerPadding으로 알려 준다 (edge-to-edge 대응)
+        Scaffold(Modifier.fillMaxSize()) { innerPadding ->
+            val modifier = Modifier.padding(innerPadding)
+            val current = settings
+            when (val s = state) {
+                MainUiState.Loading -> LoadingScreen(modifier)
+                MainUiState.NeedLogin -> when {
+                    current == null -> LoadingScreen(modifier)
+                    // 첫 실행: ① 환영 → ② 로그인. 로그인이 풀려 다시 로그인할 때는 로그인 화면만
+                    !current.onboardingCompleted && !welcomeDone -> WelcomeScreen(onStart = { welcomeDone = true }, modifier = modifier)
+                    else -> LoginScreen(
+                        checkLoggedIn = viewModel::isLoggedIn,
+                        onLoggedIn = viewModel::onLoginCompleted,
+                        modifier = modifier,
+                        firstRun = if (current.onboardingCompleted) {
+                            null
+                        } else {
+                            StepPosition(1, onboardingSteps(context).size + 1) to { welcomeDone = false }
+                        },
+                    )
+                }
+                is MainUiState.Ready -> when {
+                    current == null -> LoadingScreen(modifier)
+                    !current.onboardingCompleted -> OnboardingScreen(
+                        themeColor = current.themeColor,
+                        onThemeColorChange = viewModel::setThemeColor,
+                        refreshInterval = current.refreshInterval,
+                        onFinished = viewModel::completeOnboarding,
+                        modifier = modifier,
+                    )
+                    showSettings -> SettingsScreen(
+                        refreshInterval = current.refreshInterval,
+                        onRefreshIntervalChange = viewModel::setRefreshInterval,
+                        themeColor = current.themeColor,
+                        onThemeColorChange = viewModel::setThemeColor,
+                        batteryOn = ignoringBatteryOptimizations,
+                        onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
+                        notificationsOn = notificationsOn,
+                        onFixNotifications = { context.startActivity(notificationSettingsIntent(context)) },
+                        phoneMasked = s.snapshot.phoneMasked,
+                        onAddWidget = addWidget,
+                        onLogout = viewModel::logout,
+                        onBack = { showSettings = false },
+                        modifier = modifier,
+                    )
+                    else -> HomeScreen(
+                        ready = s,
+                        showBatteryWarning = !ignoringBatteryOptimizations,
+                        onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
+                        onRefresh = viewModel::refreshFromButton,
+                        onAddWidget = addWidget,
+                        onOpenSettings = { showSettings = true },
+                        modifier = modifier,
+                    )
+                }
+                is MainUiState.Failed -> ErrorScreen(s.message, onRetry = viewModel::refresh, modifier = modifier)
             }
-            is MainUiState.Failed -> ErrorScreen(s.message, onRetry = viewModel::refresh, modifier = modifier)
         }
     }
 }

@@ -20,8 +20,13 @@ class UiStateTest {
     )
 
     @Test
-    fun `처음 실행하면 로딩`() {
+    fun `로그인 직후 첫 조회 중이면 로딩`() {
         assertEquals(MainUiState.Loading, toUiState(UsageState(), refreshing = true))
+    }
+
+    @Test
+    fun `한 번도 조회한 적이 없으면 바로 로그인(첫 실행) 화면`() {
+        assertEquals(MainUiState.NeedLogin, toUiState(UsageState(), refreshing = false))
     }
 
     @Test

@@ -12,6 +12,7 @@ import io.github.guest01.aldotwidget.data.RefreshPolicy
 import io.github.guest01.aldotwidget.data.SessionManager
 import io.github.guest01.aldotwidget.data.SettingsStore
 import io.github.guest01.aldotwidget.data.SyncStatus
+import io.github.guest01.aldotwidget.data.ThemeColor
 import io.github.guest01.aldotwidget.data.UsageRepository
 import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.UsageState
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -59,6 +61,8 @@ internal fun toUiState(stored: UsageState, refreshing: Boolean, now: Long = Syst
         )
         stored.status == SyncStatus.ERROR && !refreshing ->
             MainUiState.Failed(stored.errorMessage ?: "알 수 없는 오류")
+        // 한 번도 조회한 적이 없으면 로그인 전이다 (설치 직후). 로그인 직후 첫 조회 중에만 로딩
+        stored.status == SyncStatus.NEVER && !refreshing -> MainUiState.NeedLogin
         else -> MainUiState.Loading
     }
 }
@@ -72,7 +76,7 @@ internal fun toUiState(stored: UsageState, refreshing: Boolean, now: Long = Syst
  */
 class MainViewModel(
     private val sync: UsageSync,
-    store: UsageStore,
+    private val store: UsageStore,
     private val repository: UsageRepository,
     private val session: SessionManager,
     private val settingsStore: SettingsStore,
@@ -97,12 +101,23 @@ class MainViewModel(
         }
     }
 
+    /** 테마 색을 저장하고, 이미 놓인 위젯도 새 색으로 다시 그린다. 앱 화면은 설정 흐름을 보고 있어서 바로 바뀐다. */
+    fun setThemeColor(color: ThemeColor) {
+        viewModelScope.launch {
+            settingsStore.setThemeColor(color)
+            sync.redrawWidgets()
+        }
+    }
+
     fun completeOnboarding() {
         viewModelScope.launch { settingsStore.setOnboardingCompleted() }
     }
 
     init {
-        refresh()
+        // 로그인한 적이 없으면 조회하지 않는다. 실패할 때까지 기다리느라 첫 화면이 몇 초씩 늦게 뜬다.
+        viewModelScope.launch {
+            if (store.state.first().status != SyncStatus.NEVER) refresh()
+        }
     }
 
     fun refresh() {

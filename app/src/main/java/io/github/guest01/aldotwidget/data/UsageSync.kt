@@ -182,6 +182,9 @@ class UsageSync(
         scheduler.cancel()
     }
 
+    /** 테마 색처럼 사용량이 아닌 것이 바뀌었을 때도 홈 화면의 위젯을 다시 그린다. */
+    suspend fun redrawWidgets() = updateWidgets()
+
     private suspend fun updateWidgets() {
         runCatching { UsageWidget().updateAll(context) }
             .onFailure { Log.w(TAG, "widget update failed", it) }

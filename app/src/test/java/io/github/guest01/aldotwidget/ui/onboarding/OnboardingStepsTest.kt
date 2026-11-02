@@ -9,23 +9,23 @@ class OnboardingStepsTest {
     fun `처음 설치하면 세 단계를 순서대로`() {
         assertEquals(
             listOf(OnboardingStep.NOTIFICATIONS, OnboardingStep.BATTERY, OnboardingStep.WIDGET),
-            onboardingSteps(needsNotifications = true, needsBattery = true, needsWidget = true),
+            onboardingSteps(needsNotifications = true, needsBattery = true),
         )
     }
 
     @Test
-    fun `이미 끝난 단계는 건너뛴다`() {
+    fun `이미 허용된 단계는 건너뛴다`() {
         assertEquals(
-            listOf(OnboardingStep.BATTERY),
-            onboardingSteps(needsNotifications = false, needsBattery = true, needsWidget = false),
+            listOf(OnboardingStep.BATTERY, OnboardingStep.WIDGET),
+            onboardingSteps(needsNotifications = false, needsBattery = true),
         )
     }
 
     @Test
-    fun `모두 끝났으면 안내 없이 바로 끝난다`() {
+    fun `위젯 단계는 테마 색을 고르는 곳이라 항상 보여 준다`() {
         assertEquals(
-            emptyList<OnboardingStep>(),
-            onboardingSteps(needsNotifications = false, needsBattery = false, needsWidget = false),
+            listOf(OnboardingStep.WIDGET),
+            onboardingSteps(needsNotifications = false, needsBattery = false),
         )
     }
 }

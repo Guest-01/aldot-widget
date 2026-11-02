@@ -4,8 +4,10 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
@@ -51,6 +53,7 @@ import io.github.guest01.aldotwidget.R
 import io.github.guest01.aldotwidget.data.Quota
 import io.github.guest01.aldotwidget.data.RefreshPolicy
 import io.github.guest01.aldotwidget.data.SyncStatus
+import io.github.guest01.aldotwidget.data.ThemeColor
 import io.github.guest01.aldotwidget.data.UsageFormat
 import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.UsageState
@@ -82,10 +85,15 @@ class UsageWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         // 런처가 알려 준 실제 크기 (레이아웃 기준값을 정할 때 참고). adb logcat -s AldotWidget
         Log.d(TAG, "sizes=${GlanceAppWidgetManager(context).getAppWidgetSizes(id)}")
-        val store = (context.applicationContext as AldotApp).container.usageStore
+        val container = (context.applicationContext as AldotApp).container
+        // 처음 그릴 때부터 고른 색이 나오도록 설정을 먼저 읽어 둔다
+        val initialSettings = container.settingsStore.current()
         provideContent {
-            val state by store.state.collectAsState(initial = null)
-            UsageWidgetContent(state)
+            val state by container.usageStore.state.collectAsState(initial = null)
+            val settings by container.settingsStore.settings.collectAsState(initial = initialSettings)
+            CompositionLocalProvider(LocalAccent provides accentOf(settings.themeColor)) {
+                UsageWidgetContent(state)
+            }
         }
     }
 
@@ -105,16 +113,20 @@ class UsageWidget : GlanceAppWidget() {
 
 /**
  * 시안의 고정 색. 폰이 다크 모드면 night 색을 쓴다 (런처가 알아서 바꿔 끼운다).
- * 다크 모드의 강조색은 어두운 바탕에서 읽히도록 같은 파랑 계열의 밝은 색이다.
+ * 강조색은 사용자가 고른 테마 색(LocalAccent)이고, 다크 모드에서는 같은 계열의 밝은 색이다.
  */
 private object WidgetColors {
     val card = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF1F242C))
     val text = ColorProvider(day = Color(0xFF191F28), night = Color(0xFFF2F4F6))
     val sub = ColorProvider(day = Color(0xFF4E5968), night = Color(0xFFB0B8C1))
     val track = ColorProvider(day = Color(0xFFE5E8EB), night = Color(0xFF3A414B))
-    val accent = ColorProvider(day = Color(0xFF1B64DA), night = Color(0xFF7FB0FF))
     val error = ColorProvider(day = Color(0xFFB42318), night = Color(0xFFFF8A80))
 }
+
+/** 사용자가 고른 테마 색(설정). 위젯 전체에 내려보낸다. */
+private val LocalAccent = staticCompositionLocalOf { accentOf(ThemeColor.DEFAULT) }
+
+private fun accentOf(color: ThemeColor) = ColorProvider(day = Color(color.day), night = Color(color.night))
 
 /** 아래쪽 상태 줄에 필요한 값 */
 private class WidgetStatus(val failed: Boolean, val refreshing: Boolean, val long: String, val short: String)
@@ -135,11 +147,14 @@ private fun UsageWidgetContent(state: UsageState?) {
     ) {
         val snapshot = state?.snapshot
         when {
-            state == null -> Message(tiny, "불러오는 중…")
+            // 위젯 글자는 줄바꿈 규칙을 정할 수 없어서 1×1에서는 한 줄에 들어가는 짧은 문구를 쓴다
+            state == null -> Message(tiny, if (tiny) "불러오는 중" else "불러오는 중…")
             state.status == SyncStatus.NEED_LOGIN ->
                 if (tiny) Message(true, "로그인 필요", "눌러서 열기") else Message(false, "로그인이 필요해요", "눌러서 앱 열기")
-            snapshot == null && state.status == SyncStatus.ERROR -> Message(tiny, "불러오지 못했어요", "눌러서 앱 열기")
-            snapshot == null -> Message(tiny, "알닷 위젯", "눌러서 로그인")
+            snapshot == null && state.status == SyncStatus.ERROR ->
+                if (tiny) Message(true, "갱신 실패", "눌러서 열기") else Message(false, "불러오지 못했어요", "눌러서 앱 열기")
+            snapshot == null ->
+                if (tiny) Message(true, "알닷 위젯", "눌러서 시작") else Message(false, "알닷 위젯", "눌러서 로그인")
             else -> {
                 val status = statusOf(snapshot, state)
                 when (layout) {
@@ -312,7 +327,7 @@ private fun StatusLine(status: WidgetStatus) {
 @Composable
 private fun StatusIcon(status: WidgetStatus, size: Dp) {
     when {
-        status.refreshing -> CircularProgressIndicator(GlanceModifier.size(size), color = WidgetColors.accent)
+        status.refreshing -> CircularProgressIndicator(GlanceModifier.size(size), color = LocalAccent.current)
         status.failed -> WarningIcon(size)
         else -> Image(
             provider = ImageProvider(R.drawable.ic_refresh),
@@ -342,7 +357,7 @@ private fun CornerRefresh(refreshing: Boolean) {
             contentAlignment = Alignment.Center,
         ) {
             if (refreshing) {
-                CircularProgressIndicator(GlanceModifier.size(18.dp), color = WidgetColors.accent)
+                CircularProgressIndicator(GlanceModifier.size(18.dp), color = LocalAccent.current)
             } else {
                 Image(
                     provider = ImageProvider(R.drawable.ic_refresh),
@@ -372,7 +387,7 @@ private fun Ring(ratio: Float, size: Dp, stroke: Dp, content: @Composable () -> 
             provider = ImageProvider(RingBitmaps.arc(sizePx, strokePx, ratio)),
             contentDescription = "남은 비율 ${(ratio * 100).roundToInt()}%",
             modifier = GlanceModifier.fillMaxSize(),
-            colorFilter = ColorFilter.tint(WidgetColors.accent),
+            colorFilter = ColorFilter.tint(LocalAccent.current),
         )
         content()
     }
@@ -387,7 +402,7 @@ private fun Bar(ratio: Float, width: Dp, height: Dp = 6.dp) {
             // 아주 짧으면 둥근 끝이 찌그러지지 않게 최소 길이를 막대 높이로 둔다
             Box(
                 GlanceModifier.width(maxOf(filled, height)).height(height)
-                    .background(WidgetColors.accent).cornerRadius(height / 2),
+                    .background(LocalAccent.current).cornerRadius(height / 2),
             ) {}
         }
     }
@@ -396,15 +411,16 @@ private fun Bar(ratio: Float, width: Dp, height: Dp = 6.dp) {
 @Composable
 private fun Message(tiny: Boolean, title: String, subtitle: String? = null) {
     val align = if (tiny) TextAlign.Center else TextAlign.Start
+    // 1칸은 좁아서(Pixel ≈82dp) 여백을 줄이고 글자를 한 줄로 고정한다. 넘치면 글자 중간에서 줄이 바뀐다.
     Column(
-        modifier = GlanceModifier.fillMaxSize().padding(CONTENT_PADDING),
+        modifier = GlanceModifier.fillMaxSize().padding(horizontal = if (tiny) 8.dp else CONTENT_PADDING, vertical = CONTENT_PADDING),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = if (tiny) Alignment.CenterHorizontally else Alignment.Start,
     ) {
-        Text(title, style = valueStyle(if (tiny) 13 else 15).copy(textAlign = align))
+        Text(title, style = valueStyle(if (tiny) 12 else 15).copy(textAlign = align), maxLines = if (tiny) 1 else 2)
         if (subtitle != null) {
             Spacer(GlanceModifier.height(4.dp))
-            Text(subtitle, style = subStyle(11).copy(textAlign = align), maxLines = 2)
+            Text(subtitle, style = subStyle(if (tiny) 10 else 11).copy(textAlign = align), maxLines = if (tiny) 1 else 2)
         }
     }
 }

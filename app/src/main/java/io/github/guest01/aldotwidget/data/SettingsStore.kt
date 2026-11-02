@@ -32,10 +32,28 @@ enum class RefreshInterval(val minutes: Long, val label: String) {
     }
 }
 
+/**
+ * 테마 색. 앱과 홈 화면 위젯이 함께 쓴다.
+ * day: 밝은 화면의 강조색이자 버튼 바탕(흰 글자가 읽히는 진한 색).
+ * night: 어두운 화면에서 글자·막대에 쓰는 같은 계열의 밝은 색.
+ * 대비를 시안에서 확인한 색들이라, 아무 색이나 고르는 대신 이 중에서만 고르게 한다.
+ */
+enum class ThemeColor(val label: String, val day: Long, val night: Long) {
+    BLUE("파랑", 0xFF1B64DA, 0xFF7FB0FF),
+    GREEN("초록", 0xFF0B7A55, 0xFF5FD3A6),
+    PURPLE("보라", 0xFF5B47D6, 0xFFA99BFF),
+    ORANGE("주황", 0xFFC2410C, 0xFFFF9F70);
+
+    companion object {
+        val DEFAULT = BLUE
+    }
+}
+
 data class AppSettings(
     val refreshInterval: RefreshInterval = RefreshInterval.DEFAULT,
     /** 첫 로그인 뒤 단계별 안내(알림·배터리·위젯)를 끝냈는지. 한 번만 보여 준다. */
     val onboardingCompleted: Boolean = false,
+    val themeColor: ThemeColor = ThemeColor.DEFAULT,
 )
 
 // 사용량(usage)과 다른 파일에 저장한다. 로그아웃할 때 사용량은 지우지만 설정은 남긴다.
@@ -53,6 +71,9 @@ class SettingsStore(context: Context) {
                     ?.let { name -> RefreshInterval.entries.firstOrNull { it.name == name } }
                     ?: RefreshInterval.DEFAULT,
                 onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
+                themeColor = prefs[KEY_THEME_COLOR]
+                    ?.let { name -> ThemeColor.entries.firstOrNull { it.name == name } }
+                    ?: ThemeColor.DEFAULT,
             )
         }
 
@@ -60,6 +81,10 @@ class SettingsStore(context: Context) {
 
     suspend fun setRefreshInterval(interval: RefreshInterval) {
         dataStore.edit { it[KEY_INTERVAL] = interval.name }
+    }
+
+    suspend fun setThemeColor(color: ThemeColor) {
+        dataStore.edit { it[KEY_THEME_COLOR] = color.name }
     }
 
     suspend fun setOnboardingCompleted() {
@@ -76,6 +101,7 @@ class SettingsStore(context: Context) {
     private companion object {
         val KEY_INTERVAL = stringPreferencesKey("refresh_interval")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val KEY_THEME_COLOR = stringPreferencesKey("theme_color")
         val KEY_SESSION_EXTENDED_AT = longPreferencesKey("session_extended_at")
     }
 }

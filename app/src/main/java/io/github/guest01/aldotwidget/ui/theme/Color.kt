@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.Color
  */
 @Immutable
 data class AppColors(
+    /** 어두운 화면용 묶음인지 */
+    val isDark: Boolean,
     /** 화면 바탕 */
     val bg: Color,
     val text: Color,
@@ -37,6 +39,7 @@ data class AppColors(
 )
 
 val LightAppColors = AppColors(
+    isDark = false,
     bg = Color(0xFFFFFFFF),
     text = Color(0xFF191F28),
     sub = Color(0xFF4E5968),
@@ -54,6 +57,7 @@ val LightAppColors = AppColors(
 )
 
 val DarkAppColors = AppColors(
+    isDark = true,
     bg = Color(0xFF101318),
     text = Color(0xFFF2F4F6),
     sub = Color(0xFFB0B8C1),

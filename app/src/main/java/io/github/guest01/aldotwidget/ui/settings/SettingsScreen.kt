@@ -49,15 +49,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.guest01.aldotwidget.R
 import io.github.guest01.aldotwidget.data.RefreshInterval
+import io.github.guest01.aldotwidget.data.ThemeColor
 import io.github.guest01.aldotwidget.ui.main.MaxContentWidth
 import io.github.guest01.aldotwidget.ui.theme.AldotTheme
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
+import io.github.guest01.aldotwidget.ui.theme.ThemeColorPicker
 
 /** 설정 화면 (시안 "앱 화면" ⑥). 자주 쓰지 않는 것들을 홈 화면에서 뺐다. */
 @Composable
 fun SettingsScreen(
     refreshInterval: RefreshInterval,
     onRefreshIntervalChange: (RefreshInterval) -> Unit,
+    themeColor: ThemeColor,
+    onThemeColorChange: (ThemeColor) -> Unit,
     batteryOn: Boolean,
     onFixBattery: () -> Unit,
     notificationsOn: Boolean,
@@ -94,6 +98,21 @@ fun SettingsScreen(
             IntervalSelector(refreshInterval, onRefreshIntervalChange)
             Text(
                 "위젯이 이 주기로 갱신돼요. 폰 상태에 따라 조금 늦어질 수 있어요.",
+                fontSize = 12.sp, lineHeight = 18.sp, color = colors.muted, modifier = Modifier.padding(top = 8.dp),
+            )
+
+            SectionLabel("테마 색")
+            Card {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ThemeColorPicker(themeColor, onThemeColorChange, Modifier.weight(1f))
+                    Text(themeColor.label, fontSize = 14.sp, color = colors.sub)
+                }
+            }
+            Text(
+                "앱과 홈 화면 위젯에 함께 적용돼요.",
                 fontSize = 12.sp, lineHeight = 18.sp, color = colors.muted, modifier = Modifier.padding(top = 8.dp),
             )
 
@@ -234,7 +253,8 @@ private fun StatusLine(label: String, on: Boolean, onFix: () -> Unit) {
             Icon(painterResource(R.drawable.ic_error_outline), contentDescription = null, tint = colors.warn, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text("꺼짐", fontSize = 14.sp, color = colors.warn)
-            TextButton(onClick = onFix) {
+            // 글자 버튼은 최소 폭(58dp)이 있어 짧은 "켜기"는 양옆 여백이 넓다. 글자 끝이 다른 줄의 값과 맞도록 민다
+            TextButton(onClick = onFix, modifier = Modifier.offset(x = 16.dp)) {
                 Text("켜기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent)
             }
         }
@@ -265,6 +285,8 @@ private fun SettingsScreenPreview() {
         SettingsScreen(
             refreshInterval = RefreshInterval.DEFAULT,
             onRefreshIntervalChange = {},
+            themeColor = ThemeColor.DEFAULT,
+            onThemeColorChange = {},
             batteryOn = false,
             onFixBattery = {},
             notificationsOn = true,
