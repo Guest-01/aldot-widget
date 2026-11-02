@@ -33,7 +33,7 @@ import io.github.guest01.aldotwidget.ui.main.LoadingScreen
 import io.github.guest01.aldotwidget.ui.main.UsageScreen
 import io.github.guest01.aldotwidget.ui.onboarding.OnboardingScreen
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
-import io.github.guest01.aldotwidget.widget.DetailedWidgetReceiver
+import io.github.guest01.aldotwidget.widget.SquareWidgetReceiver
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -93,7 +93,7 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                         // 런처에 "이 위젯을 홈 화면에 추가할까요?" 창을 띄워 달라고 요청한다 (Android 8+ 표준 기능)
                         scope.launch {
                             val supported = GlanceAppWidgetManager(context)
-                                .requestPinGlanceAppWidget(DetailedWidgetReceiver::class.java)
+                                .requestPinGlanceAppWidget(SquareWidgetReceiver::class.java)
                             if (!supported) {
                                 Toast.makeText(context, "이 홈 화면 앱은 위젯 추가 요청을 지원하지 않아요", Toast.LENGTH_SHORT).show()
                             }

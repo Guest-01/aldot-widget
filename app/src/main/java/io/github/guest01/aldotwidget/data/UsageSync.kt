@@ -2,11 +2,13 @@ package io.github.guest01.aldotwidget.data
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import androidx.glance.appwidget.updateAll
 import io.github.guest01.aldotwidget.data.api.AldotException
 import io.github.guest01.aldotwidget.widget.UsageWidget
 import io.github.guest01.aldotwidget.work.RefreshScheduler
+import io.github.guest01.aldotwidget.work.RefreshWorker
 import io.github.guest01.aldotwidget.work.SessionKeepAlive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -45,14 +47,18 @@ class UsageSync(
         val status = try {
             extendSessionIfDue()
             val snapshot = repository.fetchUsage()
-            store.update { UsageState(snapshot = snapshot, status = SyncStatus.OK) }
+            store.update {
+                it.copy(snapshot = snapshot, status = SyncStatus.OK, errorMessage = null, refreshingSince = null)
+            }
             SyncStatus.OK
         } catch (e: AldotException.NeedLogin) {
             // 토큰 만료: 마지막 값은 남겨 두고 상태만 바꾼다
-            store.update { it.copy(status = SyncStatus.NEED_LOGIN, errorMessage = null) }
+            store.update { it.copy(status = SyncStatus.NEED_LOGIN, errorMessage = null, refreshingSince = null) }
             SyncStatus.NEED_LOGIN
         } catch (e: IOException) {
-            store.update { it.copy(status = SyncStatus.ERROR, errorMessage = e.message ?: "네트워크 오류") }
+            store.update {
+                it.copy(status = SyncStatus.ERROR, errorMessage = e.message ?: "네트워크 오류", refreshingSince = null)
+            }
             SyncStatus.ERROR
         }
         Log.i(TAG, "refresh: $status (background=$fromBackground, previous=$previous)")
@@ -70,6 +76,31 @@ class UsageSync(
             else -> Unit
         }
         status
+    }
+
+    /**
+     * 위젯의 새로고침 버튼. 1분에 한 번만 받는다(RefreshPolicy).
+     * 받으면 "갱신 중"으로 표시만 하고, 실제 조회는 백그라운드 작업에 맡긴다 (위젯 콜백은 오래 실행할 수 없다).
+     * @return 요청을 받았는지 (1분 제한에 걸리면 false)
+     */
+    suspend fun requestRefresh(): Boolean {
+        val now = System.currentTimeMillis()
+        if (!RefreshPolicy.canRequest(store.state.first().lastRequestedAt, now)) return false
+        if (isOnline()) {
+            store.update { it.copy(refreshingSince = now, lastRequestedAt = now) }
+            RefreshWorker.enqueueNow(context)
+        } else {
+            // 작업이 네트워크를 기다리는 동안 "갱신 중"이 계속 보이지 않도록 바로 실패로 표시한다
+            store.update { it.copy(status = SyncStatus.ERROR, errorMessage = "인터넷에 연결되어 있지 않아요") }
+        }
+        updateWidgets()
+        return true
+    }
+
+    private fun isOnline(): Boolean {
+        val manager = context.getSystemService(ConnectivityManager::class.java)
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     /** 알람 처리가 제한 시간을 넘겼을 때. 취소되면 아래 기록이 남지 않으므로 따로 남긴다. */

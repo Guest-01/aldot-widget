@@ -35,8 +35,8 @@ import io.github.guest01.aldotwidget.ui.batteryExemptionIntent
 import io.github.guest01.aldotwidget.ui.canPostNotifications
 import io.github.guest01.aldotwidget.ui.isIgnoringBatteryOptimizations
 import io.github.guest01.aldotwidget.widget.CompactWidgetReceiver
-import io.github.guest01.aldotwidget.widget.DetailedWidgetReceiver
 import io.github.guest01.aldotwidget.widget.SquareWidgetReceiver
+import io.github.guest01.aldotwidget.widget.TinyWidgetReceiver
 import io.github.guest01.aldotwidget.widget.UsageWidget
 import kotlinx.coroutines.launch
 
@@ -155,9 +155,9 @@ private fun WidgetStep(onDone: () -> Unit) {
         body = "크기를 고르면 홈 화면에 바로 추가돼요. 나중에 홈 화면을 길게 눌러 위젯 목록에서 추가할 수도 있어요.",
     )
     listOf(
+        "데이터 고리 (1×1)" to TinyWidgetReceiver::class.java,
         "데이터 남은 양 (2×1)" to CompactWidgetReceiver::class.java,
         "사용량 요약 (2×2)" to SquareWidgetReceiver::class.java,
-        "사용량 상세 (4×2)" to DetailedWidgetReceiver::class.java,
     ).forEach { (label, receiver) ->
         OutlinedButton(
             onClick = { scope.launch { manager.requestPinGlanceAppWidget(receiver) } },

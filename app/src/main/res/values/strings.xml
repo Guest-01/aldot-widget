@@ -2,10 +2,10 @@
     <string name="app_name">알닷 위젯</string>
 
     <!-- 위젯 목록에 보이는 이름과 설명. 크기(2×1 등)는 런처가 따로 표시한다. -->
+    <string name="widget_tiny_label">데이터 고리</string>
+    <string name="widget_tiny_description">남은 비율만 작게</string>
     <string name="widget_compact_label">데이터 남은 양</string>
-    <string name="widget_compact_description">데이터만 간단히</string>
+    <string name="widget_compact_description">고리와 남은 용량</string>
     <string name="widget_square_label">사용량 요약</string>
-    <string name="widget_square_description">데이터는 크게, 음성·문자는 작게</string>
-    <string name="widget_detailed_label">사용량 상세</string>
-    <string name="widget_detailed_description">데이터·음성·문자 막대와 새로고침</string>
+    <string name="widget_square_description">데이터·음성·문자, 넓히면 막대로</string>
 </resources>

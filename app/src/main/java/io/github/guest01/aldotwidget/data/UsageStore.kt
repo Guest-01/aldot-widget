@@ -28,6 +28,10 @@ data class UsageState(
     val snapshot: UsageSnapshot? = null,
     val status: SyncStatus = SyncStatus.NEVER,
     val errorMessage: String? = null,
+    /** 직접 누른 새로고침이 진행 중이면 그 시작 시각 (위젯의 "갱신 중" 표시) */
+    val refreshingSince: Long? = null,
+    /** 마지막으로 새로고침을 직접 누른 시각 (1분 제한, RefreshPolicy) */
+    val lastRequestedAt: Long? = null,
 )
 
 // 파일 하나당 DataStore 인스턴스는 프로세스에 하나만 있어야 한다. 최상위 위임 프로퍼티로 만드는 게 표준 방식이다.
