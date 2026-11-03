@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import io.github.guest01.aldotwidget.AldotApp
 import io.github.guest01.aldotwidget.AppContainer
+import io.github.guest01.aldotwidget.data.ErrorText
 import io.github.guest01.aldotwidget.data.SyncStatus
 import io.github.guest01.aldotwidget.data.UsageState
 import io.github.guest01.aldotwidget.data.sampleSnapshot
@@ -84,7 +85,7 @@ class DemoReceiver : BroadcastReceiver() {
                     val base = UsageState(snapshot = snapshot, status = SyncStatus.OK)
                     when (state) {
                         "refreshing" -> base.copy(refreshingSince = now, lastRequestedAt = now)
-                        "error" -> base.copy(status = SyncStatus.ERROR, errorMessage = "샘플: 네트워크 오류")
+                        "error" -> base.copy(status = SyncStatus.ERROR, errorMessage = ErrorText.UNREACHABLE)
                         "login" -> base.copy(status = SyncStatus.NEED_LOGIN)
                         else -> base
                     }

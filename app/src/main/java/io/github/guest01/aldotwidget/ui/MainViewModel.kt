@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.guest01.aldotwidget.AldotApp
 import io.github.guest01.aldotwidget.data.AppSettings
+import io.github.guest01.aldotwidget.data.ErrorText
 import io.github.guest01.aldotwidget.data.RefreshInterval
 import io.github.guest01.aldotwidget.data.RefreshPolicy
 import io.github.guest01.aldotwidget.data.SessionManager
@@ -60,7 +61,7 @@ internal fun toUiState(stored: UsageState, refreshing: Boolean, now: Long = Syst
             lastRequestedAt = stored.lastRequestedAt,
         )
         stored.status == SyncStatus.ERROR && !refreshing ->
-            MainUiState.Failed(stored.errorMessage ?: "알 수 없는 오류")
+            MainUiState.Failed(stored.errorMessage ?: ErrorText.UNREACHABLE)
         // 한 번도 조회한 적이 없으면 로그인 전이다 (설치 직후). 로그인 직후 첫 조회 중에만 로딩
         stored.status == SyncStatus.NEVER && !refreshing -> MainUiState.NeedLogin
         else -> MainUiState.Loading

@@ -32,7 +32,7 @@ class Notifier(private val context: Context) {
         if (!canNotify()) return
         manager.createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL_LOGIN, NotificationManagerCompat.IMPORTANCE_DEFAULT)
-                .setName("로그인 알림")
+                .setName("로그인 만료 알림")
                 .setDescription("자동 갱신 중 다시 로그인이 필요해지면 알려 줘요")
                 .build()
         )

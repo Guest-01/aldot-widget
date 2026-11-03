@@ -119,7 +119,8 @@ fun HomeScreen(
                     if (status.failed) {
                         Banner(
                             title = "갱신하지 못했어요",
-                            body = "${status.time} 값을 보여 주고 있어요",
+                            // 이유(인터넷 없음, 서버 문제…). 맨 아래 줄에 마지막 값의 시각이 빨간색으로 보인다
+                            body = ready.error ?: "${status.time} 값을 보여 주고 있어요",
                             action = "다시 시도",
                             onAction = onRefresh,
                             modifier = Modifier.padding(top = 16.dp),

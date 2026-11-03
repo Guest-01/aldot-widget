@@ -88,7 +88,7 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
             val supported = GlanceAppWidgetManager(context)
                 .requestPinGlanceAppWidget(SquareWidgetReceiver::class.java)
             if (!supported) {
-                Toast.makeText(context, "이 홈 화면 앱은 위젯 추가 요청을 지원하지 않아요", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "이 홈 화면 앱은 위젯 추가 요청을 지원하지 않아요. 홈 화면을 길게 눌러 추가해 주세요", Toast.LENGTH_LONG).show()
             }
         }
     }

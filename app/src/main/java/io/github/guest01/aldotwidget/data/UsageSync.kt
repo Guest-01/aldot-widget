@@ -58,8 +58,9 @@ class UsageSync(
             store.update { it.copy(status = SyncStatus.NEED_LOGIN, errorMessage = null, refreshingSince = null) }
             SyncStatus.NEED_LOGIN
         } catch (e: IOException) {
+            Log.w(TAG, "refresh failed", e)
             store.update {
-                it.copy(status = SyncStatus.ERROR, errorMessage = e.message ?: "네트워크 오류", refreshingSince = null)
+                it.copy(status = SyncStatus.ERROR, errorMessage = ErrorText.of(e, isOnline()), refreshingSince = null)
             }
             SyncStatus.ERROR
         }
@@ -93,7 +94,7 @@ class UsageSync(
         if (!RefreshPolicy.canRequest(store.state.first().lastRequestedAt, now)) return false
         if (!isOnline()) {
             // 작업이 네트워크를 기다리는 동안 "갱신 중"이 계속 보이지 않도록 바로 실패로 표시한다
-            store.update { it.copy(status = SyncStatus.ERROR, errorMessage = "인터넷에 연결되어 있지 않아요") }
+            store.update { it.copy(status = SyncStatus.ERROR, errorMessage = ErrorText.OFFLINE) }
             updateWidgets()
             return true
         }
