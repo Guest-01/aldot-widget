@@ -56,6 +56,28 @@ data class AppSettings(
     val themeColor: ThemeColor = ThemeColor.DEFAULT,
 )
 
+/**
+ * 저장된 값 → 설정. 저장된 이름이 지금 목록에 없으면(예: 없어진 "3시간" 주기, 바뀐 색 이름) 기본값으로 돌아간다.
+ * 안드로이드 없이 테스트할 수 있게 저장소와 분리했다.
+ */
+internal fun appSettingsFrom(prefs: Preferences) = AppSettings(
+    refreshInterval = prefs[SettingsKeys.INTERVAL]
+        ?.let { name -> RefreshInterval.entries.firstOrNull { it.name == name } }
+        ?: RefreshInterval.DEFAULT,
+    onboardingCompleted = prefs[SettingsKeys.ONBOARDING_COMPLETED] ?: false,
+    themeColor = prefs[SettingsKeys.THEME_COLOR]
+        ?.let { name -> ThemeColor.entries.firstOrNull { it.name == name } }
+        ?: ThemeColor.DEFAULT,
+)
+
+internal object SettingsKeys {
+    val INTERVAL = stringPreferencesKey("refresh_interval")
+    val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+    val THEME_COLOR = stringPreferencesKey("theme_color")
+    val DEMO_MODE = booleanPreferencesKey("demo_mode")
+    val SESSION_EXTENDED_AT = longPreferencesKey("session_extended_at")
+}
+
 // 사용량(usage)과 다른 파일에 저장한다. 로그아웃할 때 사용량은 지우지만 설정은 남긴다.
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -65,54 +87,36 @@ class SettingsStore(context: Context) {
 
     val settings: Flow<AppSettings> = dataStore.data
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
-        .map { prefs ->
-            AppSettings(
-                refreshInterval = prefs[KEY_INTERVAL]
-                    ?.let { name -> RefreshInterval.entries.firstOrNull { it.name == name } }
-                    ?: RefreshInterval.DEFAULT,
-                onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
-                themeColor = prefs[KEY_THEME_COLOR]
-                    ?.let { name -> ThemeColor.entries.firstOrNull { it.name == name } }
-                    ?: ThemeColor.DEFAULT,
-            )
-        }
+        .map(::appSettingsFrom)
 
     suspend fun current(): AppSettings = settings.first()
 
     suspend fun setRefreshInterval(interval: RefreshInterval) {
-        dataStore.edit { it[KEY_INTERVAL] = interval.name }
+        dataStore.edit { it[SettingsKeys.INTERVAL] = interval.name }
     }
 
     suspend fun setThemeColor(color: ThemeColor) {
-        dataStore.edit { it[KEY_THEME_COLOR] = color.name }
+        dataStore.edit { it[SettingsKeys.THEME_COLOR] = color.name }
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean = true) {
-        dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
+        dataStore.edit { it[SettingsKeys.ONBOARDING_COMPLETED] = completed }
     }
 
     /**
      * 샘플 데이터 모드: 알닷 서버 대신 가짜 데이터로 앱과 위젯을 그린다 (화면 확인용).
      * 개발용 앱에만 있는 DemoReceiver(src/debug)로만 켤 수 있다. 배포용 앱에서는 항상 false.
      */
-    suspend fun demoMode(): Boolean = dataStore.data.first()[KEY_DEMO_MODE] ?: false
+    suspend fun demoMode(): Boolean = dataStore.data.first()[SettingsKeys.DEMO_MODE] ?: false
 
     suspend fun setDemoMode(on: Boolean) {
-        dataStore.edit { it[KEY_DEMO_MODE] = on }
+        dataStore.edit { it[SettingsKeys.DEMO_MODE] = on }
     }
 
     /** 로그인을 마지막으로 연장한 시각 (epoch 밀리초). 로그인 전이거나 만료됐으면 0 */
-    suspend fun sessionExtendedAt(): Long = dataStore.data.first()[KEY_SESSION_EXTENDED_AT] ?: 0L
+    suspend fun sessionExtendedAt(): Long = dataStore.data.first()[SettingsKeys.SESSION_EXTENDED_AT] ?: 0L
 
     suspend fun setSessionExtendedAt(epochMillis: Long) {
-        dataStore.edit { it[KEY_SESSION_EXTENDED_AT] = epochMillis }
-    }
-
-    private companion object {
-        val KEY_INTERVAL = stringPreferencesKey("refresh_interval")
-        val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
-        val KEY_THEME_COLOR = stringPreferencesKey("theme_color")
-        val KEY_DEMO_MODE = booleanPreferencesKey("demo_mode")
-        val KEY_SESSION_EXTENDED_AT = longPreferencesKey("session_extended_at")
+        dataStore.edit { it[SettingsKeys.SESSION_EXTENDED_AT] = epochMillis }
     }
 }
