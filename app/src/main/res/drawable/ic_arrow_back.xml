@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material Icons "arrow_back_ios_new" (Apache License 2.0). 오른쪽에서 왼쪽으로 쓰는 언어에서는 좌우를 뒤집는다 -->
+<!-- Lucide "arrow-left" (ISC License). 선 아이콘이라 색은 tint로 바꾼다 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:autoMirrored="true"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FF000000"
-        android:pathData="M17.77,3.77L16,2 6,12l10,10 1.77,-1.77L9.54,12z" />
+        android:pathData="m12 19-7-7 7-7"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M19 12H5"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

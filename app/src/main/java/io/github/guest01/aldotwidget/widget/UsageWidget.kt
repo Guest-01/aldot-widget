@@ -270,7 +270,7 @@ private fun Square(snapshot: UsageSnapshot, status: WidgetStatus, size: DpSize) 
             }
         }
         Column(GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
-            SmallQuotaLine("음성", snapshot.voice, UsageFormat::voiceSeconds)
+            SmallQuotaLine("음성", snapshot.voice, UsageFormat::voiceMinutes)
             Spacer(GlanceModifier.height(4.dp))
             SmallQuotaLine("문자", snapshot.sms, UsageFormat::smsCount)
         }
@@ -293,7 +293,7 @@ private fun Wide(snapshot: UsageSnapshot, status: WidgetStatus, size: DpSize) {
         val barWidth = size.width - CONTENT_PADDING * 2
         QuotaRow("데이터", snapshot.data, UsageFormat::dataKb, barWidth)
         Spacer(GlanceModifier.height(14.dp))
-        QuotaRow("음성", snapshot.voice, UsageFormat::voiceSeconds, barWidth)
+        QuotaRow("음성", snapshot.voice, UsageFormat::voiceMinutes, barWidth)
         Spacer(GlanceModifier.height(14.dp))
         QuotaRow("문자", snapshot.sms, UsageFormat::smsCount, barWidth)
     }

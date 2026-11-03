@@ -54,10 +54,10 @@ class UsageMappingTest {
         assertEquals("2.9 GB", UsageFormat.dataKb(3044253))
         assertEquals("2.1 GB", UsageFormat.dataKb(2192504))
         assertEquals("831.8 MB", UsageFormat.dataKb(3044253 - 2192504))
-        assertEquals("58분 4초", UsageFormat.voiceSeconds(3484))
-        assertEquals("4분 57초", UsageFormat.voiceSeconds(297))
-        assertEquals("5분", UsageFormat.voiceSeconds(300))
-        assertEquals("7초", UsageFormat.voiceSeconds(7))
+        assertEquals("58분", UsageFormat.voiceMinutes(3484))
+        assertEquals("4분", UsageFormat.voiceMinutes(297))
+        assertEquals("5분", UsageFormat.voiceMinutes(300))
+        assertEquals("0분", UsageFormat.voiceMinutes(7))
         assertEquals("59건", UsageFormat.smsCount(59))
     }
 }

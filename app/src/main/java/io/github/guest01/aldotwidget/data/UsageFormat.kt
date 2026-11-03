@@ -11,16 +11,8 @@ object UsageFormat {
         else -> "$kb KB"
     }
 
-    /** 예: 3484 → "58분 4초", 300 → "5분", 7 → "7초" */
-    fun voiceSeconds(seconds: Long): String {
-        val m = seconds / 60
-        val s = seconds % 60
-        return when {
-            m == 0L -> "${s}초"
-            s == 0L -> "${m}분"
-            else -> "${m}분 ${s}초"
-        }
-    }
+    /** 분 단위만 (남은 통화량에서 초는 의미가 적고 위젯은 자리가 좁다). 예: 3484 → "58분", 7 → "0분" */
+    fun voiceMinutes(seconds: Long): String = "${seconds / 60}분"
 
     fun smsCount(count: Long): String = "${count}건"
 

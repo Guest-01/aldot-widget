@@ -1,8 +1,12 @@
 package io.github.guest01.aldotwidget.ui.main
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,40 +23,53 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import io.github.guest01.aldotwidget.R
 import io.github.guest01.aldotwidget.data.Quota
 import io.github.guest01.aldotwidget.data.RefreshPolicy
 import io.github.guest01.aldotwidget.data.UsageFormat
+import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.sampleSnapshot
 import io.github.guest01.aldotwidget.ui.MainUiState
 import io.github.guest01.aldotwidget.ui.theme.AldotTheme
@@ -59,14 +77,18 @@ import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
-import kotlin.math.roundToInt
 
 /** 폴드 안쪽 화면처럼 넓은 화면에서도 카드가 너무 넓어지지 않게 가운데에 이 폭까지만 쓴다 */
 internal val MaxContentWidth = 520.dp
 
+/** 위쪽 색 영역 위의 흰 글자 */
+private val OnAccent = Color.White
+private val OnAccentSub = Color.White.copy(alpha = 0.85f)
+
 /**
- * 앱을 열면 보이는 화면 (시안 "앱 화면" ①~⑤).
- * 위는 스크롤되고, 아래 "위젯 추가"와 안내 문구는 화면 바닥에 붙어 있다.
+ * 앱을 열면 보이는 화면 (시안 "앱 화면"의 홈).
+ * 위쪽은 테마 색 영역(남은 데이터 계기판), 아래는 음성·문자 도넛과 회선 정보, 맨 아래는 갱신 시각.
+ * 테마 색 영역은 상태 표시줄 뒤까지 칠한다. 그래서 modifier에는 아래쪽 여백만 준다.
  */
 @Composable
 fun HomeScreen(
@@ -81,62 +103,56 @@ fun HomeScreen(
     val colors = AldotTheme.colors
     val snapshot = ready.snapshot
     val status = HomeText.status(ready, cooldownClock(ready.lastRequestedAt), ZoneId.systemDefault())
+    val period = HomeText.period(snapshot)
+    LightStatusBarIcons()
 
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.widthIn(max = MaxContentWidth).fillMaxSize().padding(horizontal = 20.dp)) {
-            Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "알닷 위젯", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = colors.text,
-                    modifier = Modifier.weight(1f),
-                )
-                // 아이콘 버튼은 누르는 영역(48dp)이 아이콘보다 커서, 아이콘이 카드 오른쪽 끝과 줄이 맞도록 민다
-                IconButton(onClick = onOpenSettings, modifier = Modifier.offset(x = 12.dp)) {
-                    Icon(painterResource(R.drawable.ic_settings), contentDescription = "설정", tint = colors.sub)
-                }
-            }
-
-            // 내용이 화면에 다 들어가면 "위젯 추가"를 바닥에 붙이고, 넘치면(큰 글자 등) 전체를 한 번에 스크롤한다.
-            // 바닥을 따로 고정하면 넘칠 때 새로고침 줄이 그 뒤로 숨는다.
-            BoxWithConstraints(Modifier.weight(1f)) {
-                Column(
-                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            snapshot.planName ?: "요금제", fontSize = 22.sp, lineHeight = 30.sp,
-                            fontWeight = FontWeight.ExtraBold, color = colors.text,
-                        )
-                        Text(HomeText.planSubtitle(snapshot), fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 4.dp))
-
-                        if (showBatteryWarning) BatteryBanner(onFixBattery, Modifier.padding(top = 16.dp))
-
-                        DataCard(snapshot.data, Modifier.padding(top = 16.dp))
-                        Row(
-                            Modifier.padding(top = 12.dp).fillMaxWidth().height(IntrinsicSize.Min),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            SmallQuotaCard("음성", snapshot.voice, UsageFormat::voiceSeconds, HomeText::voiceCaption, Modifier.weight(1f))
-                            SmallQuotaCard("문자", snapshot.sms, UsageFormat::smsCount, HomeText::smsCaption, Modifier.weight(1f))
-                        }
-                        StatusRow(status, onRefresh, Modifier.padding(top = 12.dp))
-                    }
-                    Column(Modifier.padding(top = 16.dp)) {
-                        AddWidgetRow(onAddWidget)
-                        Text(
-                            "알닷에 공개된 실시간 사용량이에요.\n통신사 전산 반영은 조금 늦을 수 있어요.",
-                            fontSize = 12.sp, lineHeight = 18.sp, color = colors.muted, textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 24.dp),
+    // 내용이 화면에 다 들어가면 갱신 시각 줄을 바닥에 붙이고, 넘치면(큰 글자 등) 전체를 한 번에 스크롤한다
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Hero(snapshot.data, HomeText.dataPill(snapshot.data, period, snapshot.remainDays), status, onRefresh, onOpenSettings)
+                Column(Modifier.widthIn(max = MaxContentWidth).fillMaxWidth().padding(horizontal = 20.dp)) {
+                    if (status.failed) {
+                        Banner(
+                            title = "갱신하지 못했어요",
+                            body = "${status.time} 값을 보여 주고 있어요",
+                            action = "다시 시도",
+                            onAction = onRefresh,
+                            modifier = Modifier.padding(top = 16.dp),
                         )
                     }
+                    if (showBatteryWarning) {
+                        Banner(
+                            title = "밤에 로그인이 풀릴 수 있어요",
+                            body = "배터리 '제한 없음'이 필요해요",
+                            action = "허용하기",
+                            onAction = onFixBattery,
+                            modifier = Modifier.padding(top = if (status.failed) 8.dp else 16.dp),
+                        )
+                    }
+                    Row(
+                        Modifier.padding(top = 16.dp).fillMaxWidth().height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        QuotaCard(
+                            "음성", R.drawable.ic_phone, snapshot.voice, HomeText::voiceMinutes, "분",
+                            Modifier.weight(1f),
+                        )
+                        QuotaCard("문자", R.drawable.ic_message, snapshot.sms, { "$it" }, "건", Modifier.weight(1f))
+                    }
+                    LineCard(snapshot, period, Modifier.padding(top = 12.dp))
                 }
             }
+            Footer(status, onAddWidget, Modifier.widthIn(max = MaxContentWidth).fillMaxWidth().padding(top = 16.dp))
         }
     }
 }
 
-/** 1분 제한이 끝나는 순간 버튼이 다시 켜지도록, 그때 한 번 시각을 새로 읽는다. */
+/** 1분 제한이 끝나는 순간 아이콘이 다시 켜지도록, 그때 한 번 시각을 새로 읽는다. */
 @Composable
 private fun cooldownClock(lastRequestedAt: Long?): Instant {
     val now by produceState(Instant.now(), lastRequestedAt) {
@@ -150,138 +166,287 @@ private fun cooldownClock(lastRequestedAt: Long?): Instant {
     return now
 }
 
+/** 홈 화면에 있는 동안 상태 표시줄 아이콘을 흰색으로 (테마 색 영역 위라서). 나가면 원래대로 */
 @Composable
-private fun BatteryBanner(onFix: () -> Unit, modifier: Modifier = Modifier) {
+private fun LightStatusBarIcons() {
+    val view = LocalView.current
+    if (view.isInEditMode) return
+    DisposableEffect(view) {
+        val window = view.context.findActivity()?.window ?: return@DisposableEffect onDispose { }
+        val controller = WindowCompat.getInsetsController(window, view)
+        val before = controller.isAppearanceLightStatusBars
+        controller.isAppearanceLightStatusBars = false
+        onDispose { controller.isAppearanceLightStatusBars = before }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+/** 큰 숫자는 폰 글자 크기를 115%까지만 따른다 (더 키우면 계기판을 넘친다). 위젯과 같은 상한 */
+@Composable
+private fun cappedSp(size: Int): TextUnit {
+    val scale = LocalDensity.current.fontScale
+    return if (scale <= MAX_HERO_FONT_SCALE) size.sp else (size * MAX_HERO_FONT_SCALE / scale).sp
+}
+
+private const val MAX_HERO_FONT_SCALE = 1.15f
+
+/** 위쪽 테마 색 영역: 제목줄(새로고침·설정), 남은 데이터 반원 계기판, 하루 사용량 안내 */
+@Composable
+private fun Hero(
+    data: Quota?,
+    pill: String?,
+    status: HomeStatus,
+    onRefresh: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val colors = AldotTheme.colors
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+            .background(colors.button)
+            .windowInsetsPadding(WindowInsets.statusBars),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Column(
+            Modifier.widthIn(max = MaxContentWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("알닷 위젯", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = OnAccent, modifier = Modifier.weight(1f))
+                // 갱신 중이면 도는 표시, 1분 제한 중이면 흐린 아이콘(누를 수 없음)
+                IconButton(onClick = onRefresh, enabled = status.canRefresh) {
+                    if (status.refreshing) {
+                        CircularProgressIndicator(
+                            Modifier.size(20.dp), color = OnAccent, trackColor = OnAccent.copy(alpha = 0.3f), strokeWidth = 2.2.dp,
+                        )
+                    } else {
+                        Icon(
+                            painterResource(R.drawable.ic_refresh), contentDescription = "새로고침", tint = OnAccent,
+                            modifier = Modifier.size(22.dp).alpha(if (status.canRefresh) 1f else 0.4f),
+                        )
+                    }
+                }
+                // 아이콘 버튼은 누르는 영역(48dp)이 아이콘보다 커서, 아이콘이 오른쪽 여백과 줄이 맞도록 민다
+                IconButton(onClick = onOpenSettings, modifier = Modifier.offset(x = 12.dp)) {
+                    Icon(painterResource(R.drawable.ic_settings), contentDescription = "설정", tint = OnAccent, modifier = Modifier.size(22.dp))
+                }
+            }
+            Gauge(data, Modifier.padding(top = 6.dp))
+            if (pill != null) {
+                Text(
+                    pill, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = OnAccent, textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/** 남은 데이터 반원 계기판. 가운데 아래에 "남은 데이터"와 큰 숫자 */
+@Composable
+private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
+    val ratio = data?.remainingRatio ?: 0f
+    Box(modifier.size(width = 264.dp, height = 150.dp), contentAlignment = Alignment.BottomCenter) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 18.dp.toPx()
+            // 반지름 112dp 원의 위쪽 절반. 원의 가운데는 아래에서 14dp 위
+            val radius = 112.dp.toPx()
+            val center = Offset(size.width / 2, size.height - 14.dp.toPx())
+            val topLeft = Offset(center.x - radius, center.y - radius)
+            val arcSize = Size(radius * 2, radius * 2)
+            drawArc(Color.White.copy(alpha = 0.22f), 180f, 180f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+            if (ratio > 0f) {
+                drawArc(Color.White, 180f, 180f * ratio.coerceAtMost(1f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(painterResource(R.drawable.ic_data), contentDescription = null, tint = OnAccentSub, modifier = Modifier.size(15.dp))
+                Text("남은 데이터", fontSize = 14.sp, color = OnAccentSub, modifier = Modifier.padding(start = 4.dp))
+            }
+            val totalText = data?.let { UsageFormat.dataKb(it.total).replace(".0 ", " ") }
+            val (number, unit) = when {
+                data == null -> "-" to ""
+                // 다 쓴 경우 "0 KB" 대신 전체량과 같은 단위로 "0 GB"
+                data.remaining <= 0 -> "0" to splitUnit(totalText.orEmpty()).second
+                else -> splitUnit(UsageFormat.dataKb(data.remaining))
+            }
+            val total = totalText?.let { "/ $it" }
+            Text(
+                buildAnnotatedString {
+                    append(number)
+                    withStyle(SpanStyle(fontSize = cappedSp(20), letterSpacing = 0.sp)) { append(" $unit") }
+                    if (total != null) {
+                        withStyle(SpanStyle(fontSize = cappedSp(15), fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = Color.White.copy(alpha = 0.7f))) {
+                            append(" $total")
+                        }
+                    }
+                },
+                fontSize = cappedSp(50), lineHeight = cappedSp(56), fontWeight = FontWeight.Black, letterSpacing = (-1.5).sp,
+                color = OnAccent, maxLines = 1,
+            )
+        }
+    }
+}
+
+/** "5.7 GB" → ("5.7", "GB") */
+private fun splitUnit(text: String): Pair<String, String> {
+    val space = text.lastIndexOf(' ')
+    return if (space < 0) text to "" else text.substring(0, space) to text.substring(space + 1)
+}
+
+/** 갱신 실패·배터리 안내. 위쪽 색 영역 바로 아래에 붙는다 */
+@Composable
+private fun Banner(title: String, body: String, action: String, onAction: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AldotTheme.colors
     Row(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.warnBg)
-            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(painterResource(R.drawable.ic_error_outline), contentDescription = null, tint = colors.warn, modifier = Modifier.size(22.dp))
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text("밤에 로그인이 풀릴 수 있어요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.text)
-            Text("배터리 사용을 '제한 없음'으로 허용해 주세요", fontSize = 12.sp, color = colors.sub)
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.text)
+            Text(body, fontSize = 12.sp, color = colors.sub)
         }
-        TextButton(onClick = onFix) {
-            Text("허용하기", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent)
-        }
-    }
-}
-
-/** 데이터: 왼쪽 고리(남은 %), 오른쪽 남은 용량 */
-@Composable
-private fun DataCard(quota: Quota?, modifier: Modifier = Modifier) {
-    val colors = AldotTheme.colors
-    Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.panel).padding(20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val ratio = quota?.remainingRatio ?: 0f
-        Box(contentAlignment = Alignment.Center) {
-            Ring(ratio, size = 104.dp, stroke = 11.dp)
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("${(ratio * 100).roundToInt()}%", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = colors.text)
-                Text("남음", fontSize = 11.sp, color = colors.sub)
-            }
-        }
-        Column(Modifier.padding(start = 20.dp)) {
-            Text("데이터", fontSize = 13.sp, color = colors.sub)
-            Text(
-                quota?.let { UsageFormat.dataKb(it.remaining) } ?: "정보 없음",
-                fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp,
-                color = colors.text, maxLines = 1,
-            )
-            if (quota != null) Text(HomeText.dataCaption(quota), fontSize = 13.sp, color = colors.muted)
+        TextButton(onClick = onAction) {
+            Text(action, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent)
         }
     }
 }
 
-/** 음성·문자: 남은 양, 막대, 제공량 중 사용량 */
+/** 음성·문자: 도넛(남은 비율) 가운데에 아이콘, 오른쪽에 남은 양과 작은 전체량 */
 @Composable
-private fun SmallQuotaCard(
+private fun QuotaCard(
     label: String,
+    icon: Int,
     quota: Quota?,
     format: (Long) -> String,
-    caption: (Quota) -> String,
+    unit: String,
     modifier: Modifier = Modifier,
 ) {
     val colors = AldotTheme.colors
-    Column(modifier.fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(colors.panel).padding(16.dp)) {
-        Text(label, fontSize = 13.sp, color = colors.sub)
-        Text(
-            quota?.let { format(it.remaining) } ?: "정보 없음",
-            fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.ExtraBold, color = colors.text,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
-        )
-        if (quota != null) {
-            QuotaBar(quota.remainingRatio, Modifier.padding(top = 10.dp))
-            Text(caption(quota), fontSize = 12.sp, color = colors.muted, modifier = Modifier.padding(top = 8.dp))
+    Row(
+        modifier.fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(colors.segment).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Donut(quota?.remainingRatio ?: 0f, size = 56.dp, stroke = 6.dp)
+            Icon(painterResource(icon), contentDescription = null, tint = colors.accent, modifier = Modifier.size(22.dp))
+        }
+        Column(Modifier.padding(start = 14.dp)) {
+            Text("남은 $label", fontSize = 13.sp, color = colors.sub, maxLines = 1)
+            if (quota != null) {
+                Text(
+                    buildAnnotatedString {
+                        append(format(quota.remaining))
+                        withStyle(SpanStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold)) { append(unit) }
+                    },
+                    fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.ExtraBold, color = colors.text,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text("/ ${format(quota.total)}$unit", fontSize = 12.sp, color = colors.muted, maxLines = 1)
+            } else {
+                Text("정보 없음", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.text)
+            }
         }
     }
 }
 
-/** 마지막 갱신 시각(또는 갱신 중·실패)과 새로고침 버튼 */
+/** 회선 정보: 요금제(서버가 준 이름 그대로), 통신사, 번호, 이용 기간과 날짜 칸 */
 @Composable
-private fun StatusRow(status: HomeStatus, onRefresh: () -> Unit, modifier: Modifier = Modifier) {
+private fun LineCard(snapshot: UsageSnapshot, period: UsagePeriod?, modifier: Modifier = Modifier) {
     val colors = AldotTheme.colors
-    Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (status.failed) {
-            Icon(painterResource(R.drawable.ic_warning), contentDescription = null, tint = colors.warn, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.width(4.dp))
-        }
-        Text(
-            status.text, fontSize = 13.sp, color = if (status.failed) colors.warn else colors.sub,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-        )
-        val content = if (status.buttonEnabled) colors.accent else colors.muted
-        Surface(
-            onClick = onRefresh,
-            enabled = status.buttonEnabled,
-            shape = CircleShape,
-            color = colors.bg,
-            border = BorderStroke(1.dp, colors.line),
-            modifier = Modifier.padding(start = 12.dp).height(40.dp),
-        ) {
-            Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (status.refreshing) {
-                    CircularProgressIndicator(Modifier.size(16.dp), color = colors.accent, strokeWidth = 2.dp)
-                } else {
-                    Icon(painterResource(R.drawable.ic_refresh), contentDescription = null, tint = content, modifier = Modifier.size(16.dp))
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .border(BorderStroke(1.dp, colors.line), RoundedCornerShape(20.dp))
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 14.dp),
+    ) {
+        InfoRow("요금제", snapshot.planName ?: "-")
+        InfoDivider()
+        InfoRow("통신사", HomeText.carrier(snapshot))
+        InfoDivider()
+        InfoRow("번호", snapshot.phoneMasked ?: "-")
+        InfoDivider()
+        if (period != null) {
+            Row(Modifier.padding(top = 12.dp)) {
+                Text("이용 기간", fontSize = 13.sp, color = colors.sub, modifier = Modifier.weight(1f))
+                Text(HomeText.periodRange(period), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.text)
+            }
+            // 기간의 날마다 한 칸: 지난 날은 진하게, 오늘은 테마 색, 남은 날은 옅게
+            Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                repeat(period.totalDays) { i ->
+                    val day = i + 1
+                    val color = when {
+                        day < period.dayNumber -> colors.sub
+                        day == period.dayNumber -> colors.accent
+                        else -> colors.line
+                    }
+                    Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(2.dp)).background(color))
                 }
-                Spacer(Modifier.width(6.dp))
-                Text(status.buttonLabel, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = content)
             }
+            Row(Modifier.padding(top = 6.dp)) {
+                Text("오늘 ${period.dayNumber}일째", fontSize = 12.sp, color = colors.muted, modifier = Modifier.weight(1f))
+                Text(HomeText.daysLeft(period), fontSize = 12.sp, color = colors.muted)
+            }
+        } else {
+            Text("이용 기간 정보 없음", fontSize = 13.sp, color = colors.muted, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }
 
 @Composable
-private fun AddWidgetRow(onClick: () -> Unit) {
+private fun InfoRow(label: String, value: String) {
     val colors = AldotTheme.colors
-    Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = colors.panel, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(colors.stage),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(painterResource(R.drawable.ic_widgets), contentDescription = null, tint = colors.accent, modifier = Modifier.size(20.dp))
-            }
-            Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text("홈 화면에 위젯 추가", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                Text("1×1 · 2×1 · 2×2", fontSize = 12.sp, color = colors.muted)
-            }
-            Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = colors.muted, modifier = Modifier.size(20.dp))
+    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 13.sp, color = colors.sub, modifier = Modifier.width(64.dp))
+        Text(
+            value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.text, textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun InfoDivider() {
+    HorizontalDivider(thickness = 1.dp, color = AldotTheme.colors.divider)
+}
+
+/** 맨 아래: 갱신 시각(갱신 중·방금 갱신·실패면 그 표시)과 위젯 추가 */
+@Composable
+private fun Footer(status: HomeStatus, onAddWidget: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = AldotTheme.colors
+    val statusColor = if (status.failed) colors.warn else colors.muted
+    Row(modifier.padding(start = 20.dp, end = 8.dp, bottom = 8.dp).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(painterResource(R.drawable.ic_clock), contentDescription = null, tint = statusColor, modifier = Modifier.size(14.dp))
+        Text(
+            status.text, fontSize = 13.sp, color = statusColor, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 5.dp),
+        )
+        TextButton(onClick = onAddWidget) {
+            Text("홈 화면에 위젯 추가 ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.sub)
         }
     }
 }
 
-/** 원형 게이지. 위젯의 고리와 같은 모양이다. */
+/** 도넛 게이지. 12시 방향에서 시계 방향으로 남은 비율만큼 */
 @Composable
-private fun Ring(ratio: Float, size: Dp, stroke: Dp) {
+private fun Donut(ratio: Float, size: Dp, stroke: Dp) {
     val colors = AldotTheme.colors
     Canvas(Modifier.size(size)) {
         val width = stroke.toPx()
@@ -295,14 +460,6 @@ private fun Ring(ratio: Float, size: Dp, stroke: Dp) {
                 topLeft = topLeft, size = arcSize, style = Stroke(width, cap = StrokeCap.Round),
             )
         }
-    }
-}
-
-@Composable
-private fun QuotaBar(ratio: Float, modifier: Modifier = Modifier) {
-    val colors = AldotTheme.colors
-    Box(modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(colors.line)) {
-        Box(Modifier.fillMaxWidth(ratio.coerceIn(0f, 1f)).fillMaxHeight().clip(CircleShape).background(colors.accent))
     }
 }
 

@@ -3,9 +3,9 @@
 
     <!-- 위젯 목록에 보이는 이름과 설명. 크기(2×1 등)는 런처가 따로 표시한다. -->
     <string name="widget_tiny_label">데이터 고리</string>
-    <string name="widget_tiny_description">남은 비율만 작게</string>
+    <string name="widget_tiny_description">고리 안에 남은 용량</string>
     <string name="widget_compact_label">데이터 남은 양</string>
     <string name="widget_compact_description">고리와 남은 용량</string>
     <string name="widget_square_label">사용량 요약</string>
-    <string name="widget_square_description">데이터·음성·문자, 넓히면 막대로</string>
+    <string name="widget_square_description">데이터·음성·문자 한눈에</string>
 </resources>

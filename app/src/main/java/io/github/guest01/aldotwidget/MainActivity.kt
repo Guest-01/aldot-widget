@@ -140,6 +140,7 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                         notificationsOn = notificationsOn,
                         onFixNotifications = { context.startActivity(notificationSettingsIntent(context)) },
                         phoneMasked = s.snapshot.phoneMasked,
+                        partnerName = s.snapshot.partnerName,
                         onAddWidget = addWidget,
                         onLogout = viewModel::logout,
                         onBack = { showSettings = false },
@@ -152,7 +153,8 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                         onRefresh = viewModel::refreshFromButton,
                         onAddWidget = addWidget,
                         onOpenSettings = { showSettings = true },
-                        modifier = modifier,
+                        // 홈의 테마 색 영역은 상태 표시줄 뒤까지 칠하므로 위쪽 여백은 홈 화면이 직접 넣는다
+                        modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
                     )
                 }
                 is MainUiState.Failed -> ErrorScreen(s.message, onRetry = viewModel::refresh, modifier = modifier)

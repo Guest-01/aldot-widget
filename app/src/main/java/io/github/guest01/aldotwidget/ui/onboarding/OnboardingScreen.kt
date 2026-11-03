@@ -7,7 +7,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,19 +48,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -107,9 +104,9 @@ internal enum class WidgetChoice(
     val description: String,
     val receiver: KClass<out GlanceAppWidgetReceiver>,
 ) {
-    TINY("데이터 고리", "1×1", "남은 비율만 작게", TinyWidgetReceiver::class),
+    TINY("데이터 고리", "1×1", "고리 안에 남은 용량", TinyWidgetReceiver::class),
     COMPACT("데이터 남은 양", "2×1", "고리와 남은 용량", CompactWidgetReceiver::class),
-    SQUARE("사용량 요약", "2×2", "데이터·음성·문자, 넓히면 막대로", SquareWidgetReceiver::class),
+    SQUARE("사용량 요약", "2×2", "데이터·음성·문자 한눈에", SquareWidgetReceiver::class),
 }
 
 /**
@@ -134,12 +131,15 @@ fun OnboardingScreen(
     // 폰의 뒤로 가기: 이전 단계로. 첫 단계에서는 로그인을 되돌릴 수 없으니 기본 동작(앱 닫기)에 맡긴다
     BackHandler(enabled = index > 0) { index-- }
     fun position() = StepPosition(number = index + 2, total = steps.size + 1)
+    // 화면 왼쪽 위 뒤로도 시스템 뒤로 가기와 같게: 첫 단계에는 없다
+    val back: (() -> Unit)? = if (index > 0) ({ index-- }) else null
 
     when (steps.getOrNull(index)) {
-        OnboardingStep.NOTIFICATIONS -> NotificationStep(position(), onDone = next, modifier = modifier)
-        OnboardingStep.BATTERY -> BatteryStep(position(), onDone = next, modifier = modifier)
+        OnboardingStep.NOTIFICATIONS -> NotificationStep(position(), onBack = back, onDone = next, modifier = modifier)
+        OnboardingStep.BATTERY -> BatteryStep(position(), onBack = back, onDone = next, modifier = modifier)
         OnboardingStep.WIDGET -> WidgetStep(
             position = position(),
+            onBack = back,
             themeColor = themeColor,
             onThemeColorChange = onThemeColorChange,
             onRequested = { requestedWidget = it.name; next() },
@@ -156,7 +156,7 @@ fun OnboardingScreen(
 }
 
 @Composable
-private fun NotificationStep(position: StepPosition, onDone: () -> Unit, modifier: Modifier) {
+private fun NotificationStep(position: StepPosition, onBack: (() -> Unit)?, onDone: () -> Unit, modifier: Modifier) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onDone() }
     OnboardingPage(
         position = position,
@@ -164,6 +164,7 @@ private fun NotificationStep(position: StepPosition, onDone: () -> Unit, modifie
         body = "밤사이 로그인이 풀려 위젯이 멈추면 이런 알림을 한 번 보내 드려요.",
         skipLabel = "건너뛰기",
         onSkip = onDone,
+        onBack = onBack,
         primaryLabel = "알림 받기",
         onPrimary = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -190,7 +191,10 @@ private fun NotificationStep(position: StepPosition, onDone: () -> Unit, modifie
                 Column(Modifier.padding(start = 12.dp)) {
                     Text("알닷 위젯 · 지금", fontSize = 12.sp, color = colors.muted)
                     Text("알닷 로그인이 만료됐어요", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                    Text("위젯을 계속 갱신하려면 다시 로그인해 주세요", fontSize = 14.sp, color = colors.sub)
+                    Text(
+                        "위젯을 계속 갱신하려면 다시 로그인해 주세요", fontSize = 14.sp, color = colors.sub,
+                        style = LocalTextStyle.current.copy(lineBreak = LineBreak.Heading.copy(wordBreak = LineBreak.WordBreak.Phrase)),
+                    )
                 }
             }
         }
@@ -199,7 +203,7 @@ private fun NotificationStep(position: StepPosition, onDone: () -> Unit, modifie
 }
 
 @Composable
-private fun BatteryStep(position: StepPosition, onDone: () -> Unit, modifier: Modifier) {
+private fun BatteryStep(position: StepPosition, onBack: (() -> Unit)?, onDone: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     // 요청 창이든 앱 정보 화면이든 돌아오면 다음 단계로 간다. 설정 여부는 마지막 화면과 홈 화면이 다시 확인한다.
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { onDone() }
@@ -209,6 +213,7 @@ private fun BatteryStep(position: StepPosition, onDone: () -> Unit, modifier: Mo
         body = "알닷 로그인은 2시간 동안 아무 요청이 없으면 풀려요. 폰이 쉬는 밤에도 위젯이 로그인을 이어 가려면 배터리 사용을 허용해 주세요.",
         skipLabel = "나중에",
         onSkip = onDone,
+        onBack = onBack,
         primaryLabel = "허용하러 가기",
         onPrimary = { launcher.launch(batteryExemptionIntent(context)) },
         modifier = modifier,
@@ -250,6 +255,7 @@ private fun BatteryStep(position: StepPosition, onDone: () -> Unit, modifier: Mo
 @Composable
 private fun WidgetStep(
     position: StepPosition,
+    onBack: (() -> Unit)?,
     themeColor: ThemeColor,
     onThemeColorChange: (ThemeColor) -> Unit,
     onRequested: (WidgetChoice) -> Unit,
@@ -264,9 +270,10 @@ private fun WidgetStep(
     OnboardingPage(
         position = position,
         title = accentTitle("홈 화면에 둘\n", "위젯", "을 골라 주세요"),
-        body = "색은 앱과 위젯에 함께 적용돼요. 나중에 설정에서 바꿀 수 있어요.",
+        body = "색은 앱과 위젯에 함께 적용돼요.\n설정에서 언제든 바꿀 수 있어요.",
         skipLabel = "건너뛰기",
         onSkip = onSkip,
+        onBack = onBack,
         primaryLabel = "홈 화면에 추가",
         onPrimary = {
             // 런처에 "홈 화면에 추가할까요?" 창을 요청하고 바로 다음 화면으로 간다 (창은 그 위에 뜬다)
@@ -304,11 +311,18 @@ private fun WidgetOption(choice: WidgetChoice, selected: Boolean, onClick: () ->
                     .background(if (selected) colors.bg.copy(alpha = 0.6f) else colors.stage),
                 contentAlignment = Alignment.Center,
             ) {
+                PictureTextStyle {
                 when (choice) {
-                    WidgetChoice.TINY -> MiniCard(Modifier.size(48.dp, 46.dp)) { MiniRing(30.dp, 4.dp) }
+                    WidgetChoice.TINY -> MiniCard(Modifier.size(48.dp, 46.dp)) {
+                        PictureRing(34.dp, 3.5.dp) {
+                            Text("5.7", fontSize = pictureSp(9), fontWeight = FontWeight.ExtraBold, color = colors.text, maxLines = 1)
+                        }
+                    }
                     WidgetChoice.COMPACT -> MiniCard(Modifier.size(92.dp, 44.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            MiniRing(26.dp, 3.5.dp)
+                            PictureRing(28.dp, 3.5.dp) {
+                                Text("38%", fontSize = pictureSp(7), fontWeight = FontWeight.ExtraBold, color = colors.text, maxLines = 1)
+                            }
                             Column(Modifier.padding(start = 7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("5.7 GB", fontSize = pictureSp(10), fontWeight = FontWeight.ExtraBold, color = colors.text, maxLines = 1)
                                 Box(Modifier.size(32.dp, 3.dp).clip(CircleShape).background(colors.line))
@@ -326,10 +340,17 @@ private fun WidgetOption(choice: WidgetChoice, selected: Boolean, onClick: () ->
                         }
                     }
                 }
+                }
             }
             Column(Modifier.padding(start = 14.dp)) {
-                Text(choice.label, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                Text("${choice.size} · ${choice.description}", fontSize = 13.sp, color = colors.sub)
+                Text(
+                    buildAnnotatedString {
+                        append(choice.label)
+                        withStyle(SpanStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.muted)) { append("  ${choice.size}") }
+                    },
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.text,
+                )
+                Text(choice.description, fontSize = 13.sp, color = colors.sub)
             }
         }
     }
@@ -339,23 +360,6 @@ private fun WidgetOption(choice: WidgetChoice, selected: Boolean, onClick: () ->
 private fun MiniCard(modifier: Modifier, content: @Composable () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(10.dp)).background(AldotTheme.colors.raised), contentAlignment = Alignment.Center) {
         content()
-    }
-}
-
-/** 그림 속 글자 크기. 읽으라는 글자가 아니라 그림의 일부라서, 폰의 글자 크기 설정과 상관없이 고정한다. */
-@Composable
-private fun pictureSp(size: Int): TextUnit = with(LocalDensity.current) { size.dp.toSp() }
-
-/** 위젯 그림 속 작은 고리 (남은 38%) */
-@Composable
-private fun MiniRing(size: Dp, stroke: Dp) {
-    val colors = AldotTheme.colors
-    Canvas(Modifier.size(size)) {
-        val width = stroke.toPx()
-        val topLeft = Offset(width / 2, width / 2)
-        val arcSize = Size(this.size.width - width, this.size.height - width)
-        drawArc(colors.line, 0f, 360f, false, topLeft, arcSize, style = Stroke(width))
-        drawArc(colors.accent, -90f, 360f * 0.38f, false, topLeft, arcSize, style = Stroke(width, cap = StrokeCap.Round))
     }
 }
 

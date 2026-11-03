@@ -1,17 +1,17 @@
 package io.github.guest01.aldotwidget.ui.onboarding
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,7 +52,8 @@ fun WelcomeScreen(onStart: () -> Unit, modifier: Modifier = Modifier) {
                 color = colors.text, modifier = Modifier.padding(top = 16.dp),
             )
             Text(
-                "알닷 계정으로 로그인하면 데이터·통화·문자 남은 양을 홈 화면 위젯으로 보여 드려요.",
+                // "홈 화면"이 두 줄로 갈라지지 않게 사이를 줄바꿈 없는 공백으로
+                "알닷 계정으로 로그인하면 데이터·음성·문자 남은 양을 홈\u00A0화면 위젯으로 보여 드려요.",
                 fontSize = 15.sp, lineHeight = 24.sp, color = colors.sub, modifier = Modifier.padding(top = 12.dp),
             )
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -68,51 +69,96 @@ fun WelcomeScreen(onStart: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** 홈 화면에 놓인 위젯을 흉내 낸 그림. 실제 위젯과 같은 색을 쓴다. */
+/**
+ * 홈 화면에 놓인 위젯 세 가지(2×2 요약, 1×1 고리, 2×1 고리와 용량)를 홈 화면 칸처럼 배치한 그림.
+ * 실제 위젯과 같은 모양·색이다. 빈 칸은 앱 아이콘 자리.
+ */
 @Composable
 private fun WidgetIllustration() {
     val colors = AldotTheme.colors
-    // 높이는 내용에 맞춘다 (고정하면 글자 크기 설정이 큰 폰에서 카드가 잘린다)
-    Column(
-        Modifier.width(300.dp).clip(RoundedCornerShape(32.dp)).background(colors.stage).padding(horizontal = 20.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Column(
-            Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp))
-                .background(colors.raised).padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("알뜰폰 · 20:08 기준", fontSize = 12.sp, color = colors.muted, modifier = Modifier.weight(1f))
-                Icon(painterResource(R.drawable.ic_refresh), contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
-            }
-            IllustrationBar("데이터", "5.7 GB 남음", 0.38f)
-            IllustrationBar("음성", "212분 남음", 0.71f)
-            IllustrationBar("문자", "88건 남음", 0.88f)
+    val cell = 72.dp
+    val gap = 12.dp
+    Box(Modifier.size(300.dp).clip(RoundedCornerShape(32.dp)).background(colors.stage), contentAlignment = Alignment.Center) {
+        PictureTextStyle {
+        Box(Modifier.size(cell * 3 + gap * 2)) {
+            MiniWidget(Modifier.size(cell * 2 + gap)) { SquarePicture() }
+            Slot(Modifier.offset(x = (cell + gap) * 2).size(cell))
+            MiniWidget(Modifier.offset(x = (cell + gap) * 2, y = cell + gap).size(cell)) { TinyPicture() }
+            Slot(Modifier.offset(y = (cell + gap) * 2).size(cell))
+            MiniWidget(Modifier.offset(x = cell + gap, y = (cell + gap) * 2).size(width = cell * 2 + gap, height = cell)) { CompactPicture() }
         }
-        Column(
-            Modifier.width(160.dp).shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
-                .background(colors.raised).padding(horizontal = 16.dp, vertical = 12.dp),
-        ) {
-            Text("데이터", fontSize = 11.sp, color = colors.muted)
-            Text("5.7 GB", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = colors.text)
-            Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(5.dp).clip(CircleShape).background(colors.line)) {
-                Box(Modifier.fillMaxWidth(0.38f).fillMaxHeight().clip(CircleShape).background(colors.accent))
-            }
         }
     }
 }
 
 @Composable
-private fun IllustrationBar(label: String, value: String, ratio: Float) {
+private fun MiniWidget(modifier: Modifier, content: @Composable () -> Unit) {
+    Box(
+        modifier.shadow(6.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(AldotTheme.colors.raised),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/** 앱 아이콘 자리 */
+@Composable
+private fun Slot(modifier: Modifier) {
+    Box(modifier.clip(RoundedCornerShape(16.dp)).background(AldotTheme.colors.text.copy(alpha = 0.06f)))
+}
+
+@Composable
+private fun SquarePicture() {
     val colors = AldotTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row {
-            Text(label, fontSize = 13.sp, color = colors.sub, modifier = Modifier.weight(1f))
-            Text(value, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.text)
+    Column(Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("알뜰폰", fontSize = pictureSp(9), color = colors.muted, modifier = Modifier.weight(1f))
+            Icon(painterResource(R.drawable.ic_refresh), contentDescription = null, tint = colors.muted, modifier = Modifier.size(11.dp))
         }
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(colors.line)) {
-            Box(Modifier.fillMaxWidth(ratio).fillMaxHeight().clip(CircleShape).background(colors.accent))
+        Text("데이터 남음", fontSize = pictureSp(9), color = colors.sub, modifier = Modifier.padding(top = 4.dp))
+        Text("5.7 GB", fontSize = pictureSp(20), lineHeight = pictureSp(24), fontWeight = FontWeight.ExtraBold, color = colors.text)
+        Box(Modifier.padding(top = 5.dp).fillMaxWidth().height(4.dp).clip(CircleShape).background(colors.line)) {
+            Box(Modifier.fillMaxWidth(0.38f).fillMaxHeight().clip(CircleShape).background(colors.accent))
+        }
+        PictureLine("음성", "212분", Modifier.padding(top = 9.dp))
+        PictureLine("문자", "88건", Modifier.padding(top = 3.dp))
+        Spacer(Modifier.weight(1f))
+        Text("20:08 기준", fontSize = pictureSp(8), color = colors.muted)
+    }
+}
+
+@Composable
+private fun PictureLine(label: String, value: String, modifier: Modifier) {
+    val colors = AldotTheme.colors
+    Row(modifier.fillMaxWidth()) {
+        Text(label, fontSize = pictureSp(9), color = colors.sub, modifier = Modifier.weight(1f))
+        Text(value, fontSize = pictureSp(9), fontWeight = FontWeight.Bold, color = colors.text)
+    }
+}
+
+@Composable
+private fun TinyPicture() {
+    val colors = AldotTheme.colors
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        PictureRing(44.dp, 5.dp) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("5.7", fontSize = pictureSp(11), lineHeight = pictureSp(12), fontWeight = FontWeight.ExtraBold, color = colors.text)
+                Text("GB", fontSize = pictureSp(7), lineHeight = pictureSp(8), color = colors.sub)
+            }
+        }
+        Text("20:08", fontSize = pictureSp(8), color = colors.muted, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+@Composable
+private fun CompactPicture() {
+    val colors = AldotTheme.colors
+    Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        PictureRing(48.dp, 5.5.dp) {
+            Text("38%", fontSize = pictureSp(10), fontWeight = FontWeight.ExtraBold, color = colors.text)
+        }
+        Column(Modifier.padding(start = 10.dp)) {
+            Text("데이터 남음", fontSize = pictureSp(9), color = colors.sub)
+            Text("5.7 GB", fontSize = pictureSp(15), lineHeight = pictureSp(18), fontWeight = FontWeight.ExtraBold, color = colors.text, maxLines = 1)
+            Text("20:08 기준", fontSize = pictureSp(8), color = colors.muted)
         }
     }
 }
