@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -307,7 +308,8 @@ private fun WidgetOption(choice: WidgetChoice, selected: Boolean, onClick: () ->
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(width = 112.dp, height = 72.dp).clip(RoundedCornerShape(14.dp))
+                // 미리보기 그림 속 숫자는 읽지 않는다 (이름과 설명이 같은 내용)
+                Modifier.size(width = 112.dp, height = 72.dp).clearAndSetSemantics { }.clip(RoundedCornerShape(14.dp))
                     .background(if (selected) colors.bg.copy(alpha = 0.6f) else colors.stage),
                 contentAlignment = Alignment.Center,
             ) {

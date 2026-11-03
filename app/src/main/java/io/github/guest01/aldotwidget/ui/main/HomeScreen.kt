@@ -53,6 +53,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -81,9 +84,12 @@ import java.time.ZoneId
 /** 폴드 안쪽 화면처럼 넓은 화면에서도 카드가 너무 넓어지지 않게 가운데에 이 폭까지만 쓴다 */
 internal val MaxContentWidth = 520.dp
 
-/** 위쪽 색 영역 위의 흰 글자 */
+/**
+ * 위쪽 색 영역 위의 흰 글자. 보조 글자도 네 가지 테마 색 모두에서 대비 4.5:1 이상이 되게
+ * 92%까지만 흐리게 한다 (주황이 가장 낮아 4.6).
+ */
 private val OnAccent = Color.White
-private val OnAccentSub = Color.White.copy(alpha = 0.85f)
+private val OnAccentSub = Color.White.copy(alpha = 0.92f)
 
 /**
  * 앱을 열면 보이는 화면 (시안 "앱 화면"의 홈).
@@ -224,7 +230,7 @@ private fun Hero(
                 IconButton(onClick = onRefresh, enabled = status.canRefresh) {
                     if (status.refreshing) {
                         CircularProgressIndicator(
-                            Modifier.size(20.dp), color = OnAccent, trackColor = OnAccent.copy(alpha = 0.3f), strokeWidth = 2.2.dp,
+                            Modifier.size(20.dp).semantics { contentDescription = "갱신 중" }, color = OnAccent, trackColor = OnAccent.copy(alpha = 0.3f), strokeWidth = 2.2.dp,
                         )
                     } else {
                         Icon(
@@ -245,7 +251,8 @@ private fun Hero(
                     modifier = Modifier
                         .padding(top = 16.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.16f))
+                        // 흰 글자가 잘 읽히도록 밝은 바탕 대신 살짝 어두운 바탕 (대비 6.3:1 이상)
+                        .background(Color.Black.copy(alpha = 0.14f))
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }
@@ -257,7 +264,19 @@ private fun Hero(
 @Composable
 private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
     val ratio = data?.remainingRatio ?: 0f
-    Box(modifier.size(width = 264.dp, height = 150.dp), contentAlignment = Alignment.BottomCenter) {
+    val totalText = data?.let { UsageFormat.dataKb(it.total).replace(".0 ", " ") }
+    val (number, unit) = when {
+        data == null -> "-" to ""
+        // 다 쓴 경우 "0 KB" 대신 전체량과 같은 단위로 "0 GB"
+        data.remaining <= 0 -> "0" to splitUnit(totalText.orEmpty()).second
+        else -> splitUnit(UsageFormat.dataKb(data.remaining))
+    }
+    // 화면 읽기(TalkBack)는 계기판 전체를 한 문장으로 읽는다
+    val spoken = if (data == null) "남은 데이터 정보 없음" else "남은 데이터 $number $unit, 전체 $totalText"
+    Box(
+        modifier.size(width = 264.dp, height = 150.dp).clearAndSetSemantics { contentDescription = spoken },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 18.dp.toPx()
             // 반지름 112dp 원의 위쪽 절반. 원의 가운데는 아래에서 14dp 위
@@ -275,20 +294,13 @@ private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
                 Icon(painterResource(R.drawable.ic_data), contentDescription = null, tint = OnAccentSub, modifier = Modifier.size(15.dp))
                 Text("남은 데이터", fontSize = 14.sp, color = OnAccentSub, modifier = Modifier.padding(start = 4.dp))
             }
-            val totalText = data?.let { UsageFormat.dataKb(it.total).replace(".0 ", " ") }
-            val (number, unit) = when {
-                data == null -> "-" to ""
-                // 다 쓴 경우 "0 KB" 대신 전체량과 같은 단위로 "0 GB"
-                data.remaining <= 0 -> "0" to splitUnit(totalText.orEmpty()).second
-                else -> splitUnit(UsageFormat.dataKb(data.remaining))
-            }
             val total = totalText?.let { "/ $it" }
             Text(
                 buildAnnotatedString {
                     append(number)
                     withStyle(SpanStyle(fontSize = cappedSp(20), letterSpacing = 0.sp)) { append(" $unit") }
                     if (total != null) {
-                        withStyle(SpanStyle(fontSize = cappedSp(15), fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = Color.White.copy(alpha = 0.7f))) {
+                        withStyle(SpanStyle(fontSize = cappedSp(15), fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = OnAccentSub)) {
                             append(" $total")
                         }
                     }
@@ -340,8 +352,11 @@ private fun QuotaCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = AldotTheme.colors
+    val spoken = quota?.let { "남은 $label ${format(it.remaining)}$unit, 전체 ${format(it.total)}$unit" } ?: "남은 $label 정보 없음"
     Row(
-        modifier.fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(colors.segment).padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier.fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(colors.segment)
+            .clearAndSetSemantics { contentDescription = spoken }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -390,7 +405,7 @@ private fun LineCard(snapshot: UsageSnapshot, period: UsagePeriod?, modifier: Mo
                 Text(HomeText.periodRange(period), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.text)
             }
             // 기간의 날마다 한 칸: 지난 날은 진하게, 오늘은 테마 색, 남은 날은 옅게
-            Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(Modifier.padding(top = 8.dp).fillMaxWidth().clearAndSetSemantics { }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 repeat(period.totalDays) { i ->
                     val day = i + 1
                     val color = when {
@@ -414,7 +429,11 @@ private fun LineCard(snapshot: UsageSnapshot, period: UsagePeriod?, modifier: Mo
 @Composable
 private fun InfoRow(label: String, value: String) {
     val colors = AldotTheme.colors
-    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    // 화면 읽기는 "요금제, 5G 데이터 15GB+"처럼 이름과 값을 한 번에
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 40.dp).semantics(mergeDescendants = true) { }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(label, fontSize = 13.sp, color = colors.sub, modifier = Modifier.width(64.dp))
         Text(
             value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.text, textAlign = TextAlign.End,
@@ -440,7 +459,11 @@ private fun Footer(status: HomeStatus, onAddWidget: () -> Unit, modifier: Modifi
             modifier = Modifier.weight(1f).padding(start = 5.dp),
         )
         TextButton(onClick = onAddWidget) {
-            Text("홈 화면에 위젯 추가 ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.sub)
+            Text(
+                "홈 화면에 위젯 추가 ›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.sub,
+                // 화면 읽기가 "›" 기호까지 읽지 않게
+                modifier = Modifier.semantics { contentDescription = "홈 화면에 위젯 추가" },
+            )
         }
     }
 }

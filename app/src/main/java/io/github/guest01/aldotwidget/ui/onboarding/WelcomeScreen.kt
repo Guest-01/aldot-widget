@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -78,7 +80,11 @@ private fun WidgetIllustration() {
     val colors = AldotTheme.colors
     val cell = 72.dp
     val gap = 12.dp
-    Box(Modifier.size(300.dp).clip(RoundedCornerShape(32.dp)).background(colors.stage), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.size(300.dp).clip(RoundedCornerShape(32.dp)).background(colors.stage)
+            .clearAndSetSemantics { contentDescription = "홈 화면에 놓인 위젯 예시: 남은 데이터 5.7 GB" },
+        contentAlignment = Alignment.Center,
+    ) {
         PictureTextStyle {
         Box(Modifier.size(cell * 3 + gap * 2)) {
             MiniWidget(Modifier.size(cell * 2 + gap)) { SquarePicture() }

@@ -31,6 +31,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -254,9 +255,11 @@ private fun StatusChip(on: Boolean, onFix: () -> Unit) {
     val background = if (on) colors.stage else colors.warnBg
     Row(
         Modifier
+            // 꺼져 있을 때만 누를 수 있는 버튼. 칩은 30dp지만 누르는 영역은 48dp로 넓힌다
+            .then(if (on) Modifier else Modifier.minimumInteractiveComponentSize())
             .clip(CircleShape)
             .background(background)
-            .then(if (on) Modifier else Modifier.clickable(onClick = onFix))
+            .then(if (on) Modifier else Modifier.clickable(onClickLabel = "켜기", role = Role.Button, onClick = onFix))
             .heightIn(min = 30.dp)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

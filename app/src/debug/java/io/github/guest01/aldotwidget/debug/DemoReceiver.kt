@@ -28,6 +28,8 @@ import java.time.temporal.TemporalAdjusters
  * - error: 갱신 실패 (이전 값 + 경고)
  * - exhausted: 데이터를 다 쓴 상태 (남은 데이터 0)
  * - lastday: 이용 기간 마지막 날 (남은 날 0)
+ * - long: 아주 긴 요금제·파트너사 이름 (줄바꿈 확인용)
+ * - nodata: 음성·문자 정보가 없고 기간을 알 수 없는 응답
  * - login: 로그인이 풀린 상태 (다시 로그인 화면)
  * - onboarding: 첫 실행 안내만 처음부터 다시 (지금 상태는 그대로)
  * - fresh: 처음 설치한 상태 (환영 화면부터, 로그인 화면은 실제 알닷 사이트)
@@ -80,6 +82,11 @@ class DemoReceiver : BroadcastReceiver() {
                             remainDays = 0,
                             data = sample.data?.let { it.copy(used = it.total - 1_258_291) },
                         )
+                        "long" -> sample.copy(
+                            partnerName = "아주긴이름의알뜰폰파트너사",
+                            planName = "[아주긴이름의알뜰폰파트너사] 5G 데이터 무제한 플러스 프리미엄 요금제 (음성 무제한·문자 기본 제공)",
+                        )
+                        "nodata" -> sample.copy(voice = null, sms = null, periodStart = null, remainDays = null)
                         else -> current.snapshot ?: sample
                     }
                     val base = UsageState(snapshot = snapshot, status = SyncStatus.OK)
