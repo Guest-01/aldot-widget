@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 리소스 줄이기(R8)가 코드에서 바로 안 보이는 라이선스 목록 파일을 지우지 않게 한다 -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/aboutlibraries" />

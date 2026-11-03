@@ -1,5 +1,6 @@
 package io.github.guest01.aldotwidget.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,6 +84,13 @@ fun SettingsScreen(
     var sheet by rememberSaveable { mutableStateOf<SettingsSheet?>(null) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
 
+    // 오픈소스 라이선스는 설정 안의 한 화면. 폰의 뒤로 가기는 설정으로 돌아온다
+    if (showLicenses) {
+        BackHandler { showLicenses = false }
+        LicensesScreen(onBack = { showLicenses = false }, modifier = modifier)
+        return
+    }
+
     // 내용이 짧으면 맨 아래 안내를 바닥에 붙이고, 길면(큰 글자 등) 전체를 스크롤한다
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -144,8 +152,6 @@ fun SettingsScreen(
         SettingsSheet.COLOR -> ColorSheet(themeColor, onThemeColorChange, onDismiss = { sheet = null })
         null -> Unit
     }
-
-    if (showLicenses) LicensesDialog(onDismiss = { showLicenses = false })
 
     if (confirmLogout) {
         AlertDialog(
@@ -325,34 +331,6 @@ private fun SheetTitle(text: String) {
 private fun SheetNote(text: String) {
     Text(text, fontSize = 13.sp, lineHeight = 20.sp, color = AldotTheme.colors.muted, modifier = Modifier.padding(top = 12.dp))
 }
-
-/** 앱에 넣은 오픈소스 중 표시 의무가 있는 것. 아이콘은 Lucide(ISC)를 쓴다 */
-@Composable
-private fun LicensesDialog(onDismiss: () -> Unit) {
-    val colors = AldotTheme.colors
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.bg,
-        title = { Text("오픈소스 라이선스") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Lucide 아이콘", fontWeight = FontWeight.Bold, color = colors.text)
-                Text(LUCIDE_LICENSE, fontSize = 12.sp, lineHeight = 18.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp))
-                Text("Android Jetpack, OkHttp, Kotlin", fontWeight = FontWeight.Bold, color = colors.text, modifier = Modifier.padding(top = 16.dp))
-                Text("Apache License 2.0", fontSize = 12.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp))
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("닫기", color = colors.accent) } },
-    )
-}
-
-private const val LUCIDE_LICENSE = """ISC License
-
-Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
-
-Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."""
 
 @Composable
 private fun appVersion(): String {
