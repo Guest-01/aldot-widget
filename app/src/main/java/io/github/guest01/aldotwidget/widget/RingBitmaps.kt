@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import androidx.core.graphics.createBitmap
 
 /**
  * 원형 게이지 그림. Glance(위젯)에는 원을 그리는 부품이 없어서 비트맵으로 그려 이미지로 넣는다.
@@ -20,7 +21,7 @@ internal object RingBitmaps {
         draw(sizePx, strokePx, sweep = 360f * ratio.coerceIn(0f, 1f), roundCap = true)
 
     private fun draw(sizePx: Int, strokePx: Float, sweep: Float, roundCap: Boolean): Bitmap {
-        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(sizePx, sizePx)
         if (sweep <= 0f) return bitmap
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE

@@ -2,7 +2,6 @@ package io.github.guest01.aldotwidget.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -45,14 +44,3 @@ fun batteryExemptionIntent(context: Context): Intent {
 /** 이 앱의 알림 설정 화면. 알림 권한을 거절한 뒤에는 앱이 다시 물어볼 수 없어서 여기로 보낸다. */
 fun notificationSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-
-/** 이 앱의 "앱 정보" 화면. 삼성은 여기서 배터리 → 제한 없음을 고를 수 있다. */
-fun openAppDetailsSettings(context: Context) {
-    try {
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-        )
-    } catch (e: ActivityNotFoundException) {
-        context.startActivity(Intent(Settings.ACTION_SETTINGS))
-    }
-}

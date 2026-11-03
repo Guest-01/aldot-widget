@@ -9,6 +9,16 @@
          Play 스토어에 올릴 때는 이 권한과 요청 창을 빼야 한다 (ui/SystemSettings.kt 참고). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Android 11+는 다른 앱의 화면을 미리 찾아보려면(resolveActivity) 여기에 적어야 한다. 배터리 예외 요청 창 -->
+    <queries>
+        <intent>
+            <action
+                android:name="android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+                tools:ignore="BatteryLife" />
+            <data android:scheme="package" />
+        </intent>
+    </queries>
+
     <!-- allowBackup=false: 로그인 쿠키가 클라우드 백업으로 다른 기기에 복원되지 않게 한다.
          Android 12+의 기기 간 이전은 dataExtractionRules에서 따로 막는다. -->
     <application
@@ -24,7 +34,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.AldotWidget"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

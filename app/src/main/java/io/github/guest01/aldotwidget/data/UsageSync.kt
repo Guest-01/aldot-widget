@@ -115,7 +115,9 @@ class UsageSync(
     /** 안전망 알람이 울렸을 때: 사용량은 조회하지 않고 로그인만 연장한다 (요청 1개). */
     suspend fun keepSessionAlive(): Unit = mutex.withLock {
         if (settings.demoMode()) return@withLock
-        // 절전 중에 통신이 막혀 있는지 기록해 둔다 (BLOCKED면 알람은 울렸지만 네트워크를 못 쓰는 상태)
+        // 절전 중에 통신이 막혀 있는지 기록해 둔다 (BLOCKED면 알람은 울렸지만 네트워크를 못 쓰는 상태).
+        // 이 BLOCKED 상태는 옛 NetworkInfo로만 알 수 있어서, 사라질 예정인 API인 걸 알고 쓴다.
+        @Suppress("DEPRECATION")
         val network = context.getSystemService(ConnectivityManager::class.java).activeNetworkInfo?.detailedState
         refreshLog.append("alarm fired net=$network")
         val previous = store.state.first().status
