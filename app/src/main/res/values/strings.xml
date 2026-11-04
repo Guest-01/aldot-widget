@@ -1,5 +1,6 @@
 <resources>
-    <string name="app_name">알닷 위젯</string>
+    <!-- 앱 이름: "남았다" + 알닷의 "닷". 알닷 공식 앱처럼 보이지 않게 상표를 그대로 쓰지 않는다 -->
+    <string name="app_name">남았닷</string>
 
     <!-- 위젯 목록에 보이는 이름과 설명. 크기(2×1 등)는 런처가 따로 표시한다. -->
     <string name="widget_tiny_label">데이터 고리</string>

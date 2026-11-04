@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -225,7 +226,7 @@ private fun Hero(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("알닷 위젯", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = OnAccent, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.app_name), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = OnAccent, modifier = Modifier.weight(1f))
                 // 갱신 중이면 도는 표시, 1분 제한 중이면 흐린 아이콘(누를 수 없음)
                 IconButton(onClick = onRefresh, enabled = status.canRefresh) {
                     if (status.refreshing) {

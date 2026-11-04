@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
@@ -190,7 +191,7 @@ private fun NotificationStep(position: StepPosition, onBack: (() -> Unit)?, onDo
                     Icon(painterResource(R.drawable.ic_stat_usage), contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
                 Column(Modifier.padding(start = 12.dp)) {
-                    Text("알닷 위젯 · 지금", fontSize = 12.sp, color = colors.muted)
+                    Text("${stringResource(R.string.app_name)} · 지금", fontSize = 12.sp, color = colors.muted)
                     Text("알닷 로그인이 만료됐어요", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.text)
                     Text(
                         "위젯을 계속 갱신하려면 다시 로그인해 주세요", fontSize = 14.sp, color = colors.sub,

@@ -154,8 +154,10 @@ private fun UsageWidgetContent(state: UsageState?) {
                 if (tiny) Message(true, "로그인 필요", "눌러서 열기") else Message(false, "로그인이 필요해요", "눌러서 앱 열기")
             snapshot == null && state.status == SyncStatus.ERROR ->
                 if (tiny) Message(true, "갱신 실패", "눌러서 열기") else Message(false, "불러오지 못했어요", "눌러서 앱 열기")
-            snapshot == null ->
-                if (tiny) Message(true, "알닷 위젯", "눌러서 시작") else Message(false, "알닷 위젯", "눌러서 로그인")
+            snapshot == null -> {
+                val appName = LocalContext.current.getString(R.string.app_name)
+                if (tiny) Message(true, appName, "눌러서 시작") else Message(false, appName, "눌러서 로그인")
+            }
             else -> {
                 val status = statusOf(snapshot, state)
                 when (layout) {
