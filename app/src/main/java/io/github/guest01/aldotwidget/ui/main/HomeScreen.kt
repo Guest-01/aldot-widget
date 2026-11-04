@@ -332,8 +332,9 @@ private fun Banner(title: String, body: String, action: String, onAction: () -> 
     ) {
         Icon(painterResource(R.drawable.ic_error_outline), contentDescription = null, tint = colors.warn, modifier = Modifier.size(22.dp))
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.text)
-            Text(body, fontSize = 12.sp, color = colors.sub)
+            // 줄 높이를 정해 두지 않으면 기본값(24sp)이 붙어 작은 두 줄 사이가 떠 보인다
+            Text(title, fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, color = colors.text)
+            Text(body, fontSize = 12.sp, lineHeight = 17.sp, color = colors.sub)
         }
         TextButton(onClick = onAction) {
             Text(action, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent)

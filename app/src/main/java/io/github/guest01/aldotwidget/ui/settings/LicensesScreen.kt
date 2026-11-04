@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -22,7 +21,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -72,14 +70,7 @@ fun LicensesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
         ) {
             item {
-                // 아이콘 버튼은 누르는 영역(48dp)이 아이콘보다 커서, 아이콘이 아래 글자들과 왼쪽 줄이 맞도록 당긴다
-                IconButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp).offset(x = (-12).dp)) {
-                    Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "뒤로", tint = colors.text)
-                }
-                Text(
-                    "오픈소스 라이선스", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp,
-                    color = colors.text, modifier = Modifier.padding(top = 4.dp),
-                )
+                ScreenHeader("오픈소스 라이선스", onBack)
                 Text(
                     "이 앱은 아래 오픈소스 소프트웨어로 만들었어요. 라이선스를 누르면 전문을 볼 수 있어요.",
                     fontSize = 14.sp, lineHeight = 21.sp, color = colors.sub, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),

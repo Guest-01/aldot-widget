@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lucide "user" (ISC License). 선 아이콘이라 색은 tint로 바꾼다 -->
+<!-- Lucide "log-out" (ISC License). 선 아이콘이라 색은 tint로 바꾼다 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:pathData="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+        android:pathData="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
         android:strokeColor="#FF000000"
         android:strokeWidth="2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
     <path
-        android:pathData="M8,7a4,4 0 1,0 8,0a4,4 0 1,0 -8,0"
+        android:pathData="m16 17 5-5-5-5"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M21 12H9"
         android:strokeColor="#FF000000"
         android:strokeWidth="2"
         android:strokeLineCap="round"
