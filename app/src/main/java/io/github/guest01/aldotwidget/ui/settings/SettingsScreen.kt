@@ -8,8 +8,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -39,7 +41,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -63,7 +69,7 @@ import io.github.guest01.aldotwidget.ui.theme.ThemeColorPicker
 /**
  * 설정 화면 (시안 "앱 화면" ⑥ 상태 점검형).
  * 맨 위 점검 카드가 "위젯이 잘 돌아가는지"를 한 장으로 보여 주고, 꺼진 게 있으면 그 줄에서 바로 켠다.
- * 갱신 주기와 테마 색은 화면에서 바로 고른다. 로그아웃은 맨 아래 공식 앱 안내와 함께 푸터로 둔다.
+ * 갱신 주기와 테마 색은 목록 줄 오른쪽에서 바로 고른다. 로그아웃은 맨 아래 공식 앱 안내와 함께 푸터로 둔다.
  * (앱은 로그인 아이디를 모르고, 번호는 홈의 회선 정보에 있어서 계정 줄은 두지 않는다)
  */
 @Composable
@@ -110,26 +116,26 @@ fun SettingsScreen(
                     Modifier.padding(top = 12.dp),
                 )
 
-                SectionLabel("자동 갱신 주기", Modifier.padding(top = 22.dp))
-                IntervalPicker(refreshInterval, onRefreshIntervalChange, Modifier.padding(top = 8.dp))
-
-                SectionLabel("테마 색", Modifier.padding(top = 18.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // 동그라미(24dp)는 누르는 영역(44dp) 가운데 있어서, 동그라미가 위 글자와 왼쪽 줄이 맞도록 당긴다
-                    ThemeColorPicker(themeColor, onThemeColorChange, Modifier.offset(x = (-10).dp).weight(1f))
-                    Text(themeColor.label, fontSize = 14.sp, color = colors.sub)
-                }
-
-                Column(Modifier.padding(top = 18.dp)) {
+                // 모든 항목을 "이름 왼쪽, 고르는 것 오른쪽" 한 줄로. 꾸미기와 정보가 같은 모양의 한 목록
+                Column(Modifier.padding(top = 20.dp)) {
                     HorizontalDivider(thickness = 1.dp, color = colors.line)
-                    InfoLine("오픈소스 라이선스", onClick = { showLicenses = true }) {
+                    SettingLine("자동 갱신 주기") {
+                        SegmentedPicker(RefreshInterval.entries, refreshInterval, { it.label }, onRefreshIntervalChange)
+                    }
+                    HorizontalDivider(thickness = 1.dp, color = colors.divider)
+                    SettingLine("테마 색") {
+                        // 동그라미(24dp)는 누르는 영역(44dp) 가운데 있어서, 마지막 동그라미가 오른쪽 줄에 맞도록 민다
+                        ThemeColorPicker(themeColor, onThemeColorChange, Modifier.offset(x = 10.dp))
+                    }
+                    HorizontalDivider(thickness = 1.dp, color = colors.divider)
+                    SettingLine("오픈소스 라이선스", onClick = { showLicenses = true }) {
                         Icon(
                             painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = colors.muted,
                             modifier = Modifier.size(16.dp),
                         )
                     }
                     HorizontalDivider(thickness = 1.dp, color = colors.divider)
-                    InfoLine("버전") { Text(appVersion(), fontSize = 14.sp, color = colors.sub) }
+                    SettingLine("버전") { Text(appVersion(), fontSize = 14.sp, color = colors.sub) }
                 }
             }
 
@@ -260,57 +266,77 @@ private fun FixButton(onClick: () -> Unit) {
     }
 }
 
+/**
+ * 설정 목록 한 줄: 이름은 왼쪽, 고르는 것(또는 값)은 오른쪽. onClick이 있으면 줄 전체를 누를 수 있다.
+ * 큰 글자 등으로 한 줄에 다 안 들어가면 오른쪽 것이 이름 아래로 내려간다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, color = AldotTheme.colors.muted,
-        modifier = modifier.semantics { heading() },
-    )
-}
-
-/** 갱신 주기: 두 칸짜리 분할 버튼. 고른 칸만 떠 있는 흰 칸 */
-@Composable
-private fun IntervalPicker(selected: RefreshInterval, onSelect: (RefreshInterval) -> Unit, modifier: Modifier = Modifier) {
-    val colors = AldotTheme.colors
-    Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(colors.segment).padding(4.dp).selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+private fun SettingLine(label: String, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit) {
+    FlowRow(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.Center,
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        RefreshInterval.entries.forEach { interval ->
-            val on = interval == selected
-            val shape = RoundedCornerShape(10.dp)
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = 44.dp)
-                    .then(if (on) Modifier.shadow(2.dp, shape) else Modifier)
-                    .clip(shape)
-                    .background(if (on) colors.raised else Color.Transparent)
-                    .selectable(selected = on, onClick = { onSelect(interval) }, role = Role.RadioButton),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    interval.label, fontSize = 15.sp, lineHeight = 20.sp,
-                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                    color = if (on) colors.text else colors.sub,
-                )
-            }
-        }
+        Text(
+            label, fontSize = 15.sp, lineHeight = 20.sp, color = AldotTheme.colors.text,
+            modifier = Modifier.padding(end = 12.dp).heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
+        )
+        trailing()
     }
 }
 
-/** 정보 목록 한 줄 (라이선스, 버전). onClick이 있으면 줄 전체를 누를 수 있다 */
+/**
+ * 작은 분할 버튼 (갱신 주기). 고른 칸만 떠 있는 칸.
+ * 보이는 칸은 34dp지만 누르는 영역은 48dp로 넓히고, 바탕(40dp)은 그 가운데에 그린다.
+ */
 @Composable
-private fun InfoLine(label: String, onClick: (() -> Unit)? = null, trailing: @Composable RowScope.() -> Unit) {
+private fun <T> SegmentedPicker(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+    val colors = AldotTheme.colors
     Row(
         Modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        verticalAlignment = Alignment.CenterVertically,
+            .selectableGroup()
+            .drawBehind {
+                val height = 40.dp.toPx()
+                drawRoundRect(
+                    colors.segment, topLeft = Offset(0f, (size.height - height) / 2), size = Size(size.width, height),
+                    cornerRadius = CornerRadius(10.dp.toPx()),
+                )
+            }
+            .padding(horizontal = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(label, fontSize = 15.sp, lineHeight = 20.sp, color = AldotTheme.colors.text, modifier = Modifier.weight(1f))
-        trailing()
+        options.forEach { option ->
+            val on = option == selected
+            val shape = RoundedCornerShape(8.dp)
+            Box(
+                Modifier
+                    .heightIn(min = 48.dp)
+                    .selectable(selected = on, onClick = { onSelect(option) }, role = Role.RadioButton),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .heightIn(min = 34.dp)
+                        .then(if (on) Modifier.shadow(2.dp, shape) else Modifier)
+                        .clip(shape)
+                        .background(if (on) colors.raised else Color.Transparent)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label(option), fontSize = 14.sp, lineHeight = 20.sp, maxLines = 1,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                        color = if (on) colors.text else colors.sub,
+                    )
+                }
+            }
+        }
     }
 }
 
