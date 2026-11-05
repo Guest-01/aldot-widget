@@ -18,9 +18,13 @@ import io.github.guest01.aldotwidget.data.SyncStatus
 class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val sync = (applicationContext as AldotApp).container.usageSync
+        val container = (applicationContext as AldotApp).container
+        val sync = container.usageSync
         val fromBackground = inputData.getBoolean(KEY_FROM_BACKGROUND, false)
-        return when (sync.refresh(fromBackground = fromBackground)) {
+        val status = sync.refresh(fromBackground = fromBackground)
+        // 자동 갱신에 얹어 하루 한 번 새 버전을 확인한다 (실패해도 갱신 결과와 상관없다)
+        if (fromBackground) container.updates.checkIfDue()
+        return when (status) {
             // 네트워크 오류는 잠시 뒤 두 번까지 다시 시도 (WorkManager가 간격을 늘려 가며 재실행)
             SyncStatus.ERROR -> if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.success()
             else -> Result.success()

@@ -13,6 +13,9 @@ import io.github.guest01.aldotwidget.data.UsageSync
 import io.github.guest01.aldotwidget.data.api.AldotApi
 import io.github.guest01.aldotwidget.data.api.TokenRefreshInterceptor
 import io.github.guest01.aldotwidget.data.api.WebViewCookieJar
+import io.github.guest01.aldotwidget.update.UpdateChecker
+import io.github.guest01.aldotwidget.update.UpdateManager
+import io.github.guest01.aldotwidget.update.UpdateStore
 import io.github.guest01.aldotwidget.widget.WidgetPreviews
 import io.github.guest01.aldotwidget.work.RefreshScheduler
 import io.github.guest01.aldotwidget.work.SessionKeepAlive
@@ -20,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -84,6 +88,20 @@ class AppContainer(private val context: Context) {
         keepAlive = SessionKeepAlive(context),
         notifier = notifier,
         refreshLog = RefreshLog(context),
+    )
+
+    // 업데이트 확인·받기용. 알닷 로그인 쿠키와 브라우저 헤더가 섞이지 않게 따로 만든다 (GitHub에만 쓴다)
+    private val updateClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    val updates = UpdateManager(
+        context = context,
+        store = UpdateStore(context),
+        notifier = notifier,
+        checker = UpdateChecker(updateClient, BuildConfig.UPDATE_JSON_URL.toHttpUrl()),
+        client = updateClient,
     )
 
     companion object {

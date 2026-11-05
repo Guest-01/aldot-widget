@@ -1,5 +1,6 @@
 package io.github.guest01.aldotwidget
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -40,26 +41,50 @@ import io.github.guest01.aldotwidget.ui.onboarding.OnboardingScreen
 import io.github.guest01.aldotwidget.ui.onboarding.StepPosition
 import io.github.guest01.aldotwidget.ui.onboarding.WelcomeScreen
 import io.github.guest01.aldotwidget.ui.onboarding.onboardingSteps
+import io.github.guest01.aldotwidget.ui.settings.AboutScreen
 import io.github.guest01.aldotwidget.ui.settings.SettingsScreen
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
 import io.github.guest01.aldotwidget.widget.SquareWidgetReceiver
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    /** 새 버전 알림을 눌러 열렸는지. 홈 → 설정 → 앱 정보로 가서 업데이트 창을 띄운다 */
+    private val openUpdate = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) readOpenUpdate(intent)
         setContent {
-            AldotRoot()
+            AldotRoot(openUpdate = openUpdate.value, onOpenUpdateHandled = { openUpdate.value = false })
         }
+    }
+
+    // 앱이 이미 떠 있을 때 알림을 누르면 새 화면을 만들지 않고 여기로 온다 (SINGLE_TOP)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        readOpenUpdate(intent)
+    }
+
+    private fun readOpenUpdate(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_UPDATE, false) == true) openUpdate.value = true
+    }
+
+    companion object {
+        const val EXTRA_OPEN_UPDATE = "open_update"
     }
 }
 
 /** 상태에 따라 로딩 / 로그인 / 첫 실행 안내 / 홈·설정 / 오류 화면 중 하나를 그린다. */
 @Composable
-private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory)) {
+private fun AldotRoot(
+    openUpdate: Boolean,
+    onOpenUpdateHandled: () -> Unit,
+    viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val update by viewModel.updates.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -75,12 +100,24 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
         ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(context)
     }
 
-    // 홈 ↔ 설정. 화면이 둘뿐이라 내비게이션 라이브러리 없이 상태 하나로 바꾼다 (회전해도 유지).
+    // 홈 ↔ 설정 ↔ 앱 정보. 화면이 몇 개뿐이라 내비게이션 라이브러리 없이 상태로 바꾼다 (회전해도 유지).
     var showSettings by rememberSaveable { mutableStateOf(false) }
-    BackHandler(enabled = showSettings) { showSettings = false }
+    var showAbout by rememberSaveable { mutableStateOf(false) }
+    // 알림을 눌러 들어왔으면 앱 정보에서 업데이트 창을 바로 띄운다 (한 번만)
+    var openSheetOnStart by remember { mutableStateOf(false) }
+    BackHandler(enabled = showSettings && !showAbout) { showSettings = false }
+    BackHandler(enabled = showAbout) { showAbout = false }
     // 로그아웃 뒤 다시 로그인하면 설정이 아니라 홈으로 돌아오게 한다
     val needLogin = state is MainUiState.NeedLogin
-    LaunchedEffect(needLogin) { if (needLogin) showSettings = false }
+    LaunchedEffect(needLogin) { if (needLogin) { showSettings = false; showAbout = false } }
+    LaunchedEffect(openUpdate) {
+        if (openUpdate) {
+            showSettings = true
+            showAbout = true
+            openSheetOnStart = true
+            onOpenUpdateHandled()
+        }
+    }
 
     val addWidget: () -> Unit = {
         // 런처에 "이 위젯을 홈 화면에 추가할까요?" 창을 띄워 달라고 요청한다 (Android 8+ 표준 기능)
@@ -130,6 +167,13 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                         onFinished = viewModel::completeOnboarding,
                         modifier = modifier,
                     )
+                    showSettings && showAbout -> AboutScreen(
+                        update = update,
+                        updates = viewModel.updates,
+                        onBack = { showAbout = false },
+                        openSheetOnStart = openSheetOnStart,
+                        modifier = modifier,
+                    )
                     showSettings -> SettingsScreen(
                         refreshInterval = current.refreshInterval,
                         onRefreshIntervalChange = viewModel::setRefreshInterval,
@@ -139,6 +183,8 @@ private fun AldotRoot(viewModel: MainViewModel = viewModel(factory = MainViewMod
                         onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
                         notificationsOn = notificationsOn,
                         onFixNotifications = { context.startActivity(notificationSettingsIntent(context)) },
+                        hasUpdate = update.available != null,
+                        onOpenAbout = { showAbout = true; openSheetOnStart = false },
                         onLogout = viewModel::logout,
                         onBack = { showSettings = false },
                         modifier = modifier,

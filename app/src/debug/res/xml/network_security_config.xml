@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 개발용 앱에만: 에뮬레이터에서 이 PC의 시험용 업데이트 서버에 평문(http)으로 접속하게 한다.
+     adb reverse tcp:8765 tcp:8765 를 하면 에뮬레이터의 127.0.0.1:8765가 이 PC로 이어진다 (10.0.2.2는 에뮬레이터가 보는 이 PC 주소).
+     배포용 앱은 이 파일이 없어서 평문 접속이 막힌 기본값 그대로다. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

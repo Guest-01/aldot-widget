@@ -1,6 +1,5 @@
 package io.github.guest01.aldotwidget.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,7 +34,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,7 +45,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -82,20 +79,15 @@ fun SettingsScreen(
     onFixBattery: () -> Unit,
     notificationsOn: Boolean,
     onFixNotifications: () -> Unit,
+    /** 새 버전을 찾아 뒀는지. '앱 정보' 줄에 '업데이트' 칩을 붙인다 */
+    hasUpdate: Boolean,
+    onOpenAbout: () -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = AldotTheme.colors
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
-    var showLicenses by rememberSaveable { mutableStateOf(false) }
-
-    // 오픈소스 라이선스는 설정 안의 한 화면. 폰의 뒤로 가기는 설정으로 돌아온다
-    if (showLicenses) {
-        BackHandler { showLicenses = false }
-        LicensesScreen(onBack = { showLicenses = false }, modifier = modifier)
-        return
-    }
 
     // 내용이 짧으면 푸터를 바닥에 붙이고, 길면(큰 글자 등) 전체를 스크롤한다
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -128,14 +120,8 @@ fun SettingsScreen(
                         ThemeColorPicker(themeColor, onThemeColorChange, Modifier.offset(x = 10.dp))
                     }
                     HorizontalDivider(thickness = 1.dp, color = colors.divider)
-                    SettingLine("오픈소스 라이선스", onClick = { showLicenses = true }) {
-                        Icon(
-                            painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = colors.muted,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                    HorizontalDivider(thickness = 1.dp, color = colors.divider)
-                    SettingLine("버전") { Text(appVersion(), fontSize = 14.sp, color = colors.sub) }
+                    // 버전, 업데이트 확인, 오픈소스 라이선스, GitHub는 앱 정보 화면에 모았다
+                    SettingLine("앱 정보", onClick = onOpenAbout) { AboutLineTrailing(hasUpdate) }
                 }
             }
 
@@ -161,7 +147,7 @@ fun SettingsScreen(
     }
 }
 
-/** 설정과 그 안의 화면(오픈소스 라이선스)이 같이 쓰는 머리: 뒤로 + 제목 한 줄 */
+/** 설정과 그 안의 화면(앱 정보, 오픈소스 라이선스)이 같이 쓰는 머리: 뒤로 + 제목 한 줄 */
 @Composable
 internal fun ScreenHeader(title: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AldotTheme.colors
@@ -365,14 +351,6 @@ private fun Footer(onLogout: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun appVersion(): String {
-    val context = LocalContext.current
-    return remember {
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "-"
-    }
-}
-
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun SettingsScreenPreview() {
@@ -386,6 +364,8 @@ private fun SettingsScreenPreview() {
             onFixBattery = {},
             notificationsOn = true,
             onFixNotifications = {},
+            hasUpdate = true,
+            onOpenAbout = {},
             onLogout = {},
             onBack = {},
         )

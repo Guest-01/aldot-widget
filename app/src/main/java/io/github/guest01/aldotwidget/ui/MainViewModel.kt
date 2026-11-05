@@ -19,6 +19,7 @@ import io.github.guest01.aldotwidget.data.UsageSnapshot
 import io.github.guest01.aldotwidget.data.UsageState
 import io.github.guest01.aldotwidget.data.UsageStore
 import io.github.guest01.aldotwidget.data.UsageSync
+import io.github.guest01.aldotwidget.update.UpdateManager
 import io.github.guest01.aldotwidget.work.RefreshScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -82,6 +83,8 @@ class MainViewModel(
     private val session: SessionManager,
     private val settingsStore: SettingsStore,
     private val scheduler: RefreshScheduler,
+    /** 업데이트 확인·설치. 앱 전체에서 하나라서 화면이 다시 만들어져도 받는 중인 상태가 이어진다 */
+    val updates: UpdateManager,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
@@ -119,6 +122,8 @@ class MainViewModel(
         viewModelScope.launch {
             if (store.state.first().status != SyncStatus.NEVER) refresh()
         }
+        // 앱을 열 때도 하루가 지났으면 새 버전을 확인한다
+        updates.checkIfDueInBackground()
     }
 
     fun refresh() {
@@ -163,6 +168,7 @@ class MainViewModel(
                     session = container.sessionManager,
                     settingsStore = container.settingsStore,
                     scheduler = container.refreshScheduler,
+                    updates = container.updates,
                 )
             }
         }
