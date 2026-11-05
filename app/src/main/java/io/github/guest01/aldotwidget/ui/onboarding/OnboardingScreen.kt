@@ -200,7 +200,14 @@ private fun NotificationStep(position: StepPosition, onBack: (() -> Unit)?, onDo
                 }
             }
         }
-        Text("이 알림 말고는 보내지 않아요", fontSize = 13.sp, color = colors.muted, modifier = Modifier.padding(top = 16.dp))
+        // 위 그림은 나중에 받을 알림이고, 버튼을 누르면 바로 뜨는 건 권한 창이라 무엇을 누를지 따로 알려 준다
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Text(
+                "다음 창에서 '허용'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+        Text("이 알림 말고는 보내지 않아요", fontSize = 13.sp, color = colors.muted, modifier = Modifier.padding(top = 6.dp))
     }
 }
 
@@ -216,7 +223,7 @@ private fun BatteryStep(position: StepPosition, onBack: (() -> Unit)?, onDone: (
         skipLabel = "나중에",
         onSkip = onDone,
         onBack = onBack,
-        primaryLabel = "허용하러 가기",
+        primaryLabel = "로그인 유지하기",
         onPrimary = { launcher.launch(batteryExemptionIntent(context)) },
         modifier = modifier,
     ) {
@@ -228,22 +235,52 @@ private fun BatteryStep(position: StepPosition, onBack: (() -> Unit)?, onDone: (
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("다음 화면에서 이런 창이 떠요", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.sub)
+            // 갤럭시는 같은 요청을 다른 제목과 버튼(취소 / 확인)으로 보여 준다. Fold8(One UI 9)에서 확인한 문구.
+            val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+            val okLabel = if (samsung) "확인" else "허용"
             Column(
                 Modifier.padding(top = 10.dp).fillMaxWidth().shadow(6.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp))
                     .background(colors.raised).padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
             ) {
-                Text("앱이 백그라운드에서 항상 실행되도록 허용할까요?", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                Text("배터리 사용량이 늘어날 수 있어요.", fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    Text("거부", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
-                    Surface(shape = CircleShape, color = colors.raised, border = BorderStroke(2.dp, colors.accent)) {
-                        Text("허용", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+                if (samsung) {
+                    Text("배터리 사용량 최적화 중지", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
+                    Text(
+                        "${stringResource(R.string.app_name)}은(는) 백그라운드에서 실행될 수 있으며, 배터리를 제한 없이 사용할 수 있습니다.",
+                        fontSize = 13.sp, lineHeight = 19.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp),
+                    )
+                    // 갤럭시 창처럼 두 버튼을 반씩 나눠 가운데에 둔다
+                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            Text("취소", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(vertical = 10.dp))
+                        }
+                        Box(Modifier.width(1.dp).height(16.dp).background(colors.divider))
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            PreviewOkButton(okLabel)
+                        }
+                    }
+                } else {
+                    Text("앱이 백그라운드에서 항상 실행되도록 허용할까요?", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
+                    Text("배터리 사용량이 늘어날 수 있어요.", fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp))
+                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                        Text("거부", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                        PreviewOkButton(okLabel)
                     }
                 }
             }
-            Row(Modifier.align(Alignment.End).padding(top = 10.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_arrow_upward), contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
-                Text("'허용'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(start = 6.dp))
+            val hint = @Composable {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(painterResource(R.drawable.ic_arrow_upward), contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                    Text("'$okLabel'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+            if (samsung) {
+                // '확인' 버튼이 있는 오른쪽 절반의 가운데에 맞춘다
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                    Spacer(Modifier.weight(1f))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { hint() }
+                }
+            } else {
+                Box(Modifier.align(Alignment.End).padding(top = 10.dp, end = 8.dp)) { hint() }
             }
         }
         Text(
@@ -251,6 +288,15 @@ private fun BatteryStep(position: StepPosition, onBack: (() -> Unit)?, onDone: (
             fontSize = 13.sp, lineHeight = 20.sp, color = colors.muted, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 12.dp),
         )
+    }
+}
+
+/** 미리보기 창에서 눌러야 할 버튼. 테두리로 짚어 준다. */
+@Composable
+private fun PreviewOkButton(label: String) {
+    val colors = AldotTheme.colors
+    Surface(shape = CircleShape, color = colors.raised, border = BorderStroke(2.dp, colors.accent)) {
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
     }
 }
 
