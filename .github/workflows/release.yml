@@ -29,6 +29,8 @@ jobs:
       IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # 지난 태그와 비교하려고 기록과 태그를 모두 받는다
 
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
@@ -65,6 +67,18 @@ jobs:
           if [ "$CODE" -le "$PREV" ]; then
             MSG="versionCode($CODE)가 지난 릴리스($PREV)보다 커야 해요. build.gradle.kts의 versionCode를 올려 주세요"
             if [ "$IS_TAG" = "true" ]; then echo "::error::$MSG"; exit 1; else echo "::warning::$MSG (시험 빌드라 계속해요)"; fi
+          fi
+
+      # 바뀐 점을 깜빡하고 안 고친 경우를 알려 준다. "버그 수정"처럼 일부러 같은 문구를 쓸 수도 있어서 멈추지는 않는다
+      - name: 릴리스 노트가 바뀌었는지 확인
+        if: env.IS_TAG == 'true'
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 "${GITHUB_SHA}^" 2>/dev/null || true)
+          if [ -z "$PREV_TAG" ]; then echo "지난 태그가 없어요 (첫 릴리스)"; exit 0; fi
+          if git diff --quiet "$PREV_TAG" "$GITHUB_SHA" -- release-notes.txt; then
+            echo "::warning::release-notes.txt가 지난 릴리스($PREV_TAG)와 같아요. 일부러 같은 문구를 쓴 게 아니라면 릴리스 설명과 update.json을 고쳐 주세요"
+          else
+            echo "release-notes.txt가 $PREV_TAG 이후 바뀌었어요"
           fi
 
       - name: 서명 키 꺼내기

@@ -4,6 +4,7 @@ import groovy.json.JsonGenerator
 import groovy.json.JsonOutput
 import java.security.MessageDigest
 import java.time.LocalDate
+import java.time.ZoneId
 
 plugins {
     alias(libs.plugins.android.application)
@@ -146,7 +147,8 @@ abstract class MakeUpdateTask : DefaultTask() {
             "apk" to apkName,
             "size" to apk.length(),
             "sha256" to sha256,
-            "released" to LocalDate.now().toString(),
+            // 빌드하는 컴퓨터의 시간대와 상관없이 한국 날짜로 (GitHub Actions는 UTC라 새벽 릴리스가 하루 전으로 찍힌다)
+            "released" to LocalDate.now(ZoneId.of("Asia/Seoul")).toString(),
             "notes" to notes,
         )
         File(outDir, "update.json").writeText(JsonOutput.prettyPrint(JsonGenerator.Options().disableUnicodeEscaping().build().toJson(json), true) + "\n")
