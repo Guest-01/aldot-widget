@@ -113,6 +113,25 @@
 [Android Studio](https://developer.android.com/studio)로 이 폴더를 열어 실행하거나 `./gradlew assembleDebug`로 빌드해요.
 Kotlin, Jetpack Compose, Glance(위젯), WorkManager로 만들었어요.
 
+### 서명 키
+
+릴리스 APK는 저장소 주인만 가진 서명 키로 서명해요. 키 파일과 비밀번호는 저장소에 없어요.
+릴리스를 만드는 PC의 `C:\Users\<사용자>\.gradle\gradle.properties`(macOS·Linux는 `~/.gradle/gradle.properties`)에 다음을 적어요.
+
+```properties
+aldot.signing.storeFile=C:/Users/<사용자>/keys/aldot-release.jks
+aldot.signing.keyAlias=aldot
+aldot.signing.storePassword=<비밀번호>
+```
+
+비밀번호는 파일 대신 환경 변수 `ALDOT_SIGNING_PASSWORD`로 줘도 돼요. 키가 설정되지 않으면 `makeReleaseUpdate`가 멈춰요.
+
+받은 APK가 진짜인지 확인하려면 서명 인증서의 SHA-256 지문을 아래와 비교해요.
+
+```
+4C:95:DD:B4:9D:F9:C3:1F:6D:B8:EB:82:A8:60:5C:2A:03:1C:97:0B:CB:0A:E1:16:57:7D:55:E1:D2:2F:06:99
+```
+
 ### 릴리스 만들기
 
 1. `app/build.gradle.kts`의 `versionCode`를 1 올리고 `versionName`을 바꿔요.

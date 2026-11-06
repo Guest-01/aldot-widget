@@ -33,8 +33,27 @@ android {
         buildConfigField("String", "UPDATE_JSON_URL", "\"$updateUrl\"")
     }
 
+    // 릴리스 서명 키. 키 파일과 비밀번호는 저장소에 두지 않고, 이 PC 사용자 폴더의 Gradle 설정
+    // (C:\Users\<사용자>\.gradle\gradle.properties)이나 환경 변수에서 읽는다. 없으면 릴리스 APK는 서명 없이 만들어지고
+    // makeReleaseUpdate는 멈춘다. 설정 방법은 README의 '서명 키'.
+    signingConfigs {
+        val keyFile = project.findProperty("aldot.signing.storeFile") as String?
+        if (keyFile != null) {
+            create("release") {
+                storeFile = file(keyFile)
+                // 비밀번호는 파일 대신 Windows 사용자 환경 변수 ALDOT_SIGNING_PASSWORD로 줘도 된다
+                storePassword = (project.findProperty("aldot.signing.storePassword") as String?)
+                    ?: System.getenv("ALDOT_SIGNING_PASSWORD")
+                keyAlias = (project.findProperty("aldot.signing.keyAlias") as String?) ?: "aldot"
+                // 요즘 키 파일 형식(PKCS12)은 키 비밀번호가 파일 비밀번호와 같다
+                keyPassword = (project.findProperty("aldot.signing.keyPassword") as String?) ?: storePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             optimization {
                 enable = false
             }
@@ -97,9 +116,14 @@ abstract class MakeUpdateTask : DefaultTask() {
     @get:Internal abstract val artifactsLoader: Property<BuiltArtifactsLoader>
     @get:InputFile @get:Optional abstract val notesFile: RegularFileProperty
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
+    /** 릴리스인데 서명 키가 설정되지 않았는지. 서명 없는 APK는 설치도 업데이트도 안 돼서 여기서 멈춘다 */
+    @get:Input abstract val signingMissing: Property<Boolean>
 
     @TaskAction
     fun run() {
+        if (signingMissing.get()) {
+            error("릴리스 서명 키가 설정되지 않았어요. README의 '서명 키'대로 gradle.properties에 aldot.signing.* 를 적어 주세요")
+        }
         val built = artifactsLoader.get().load(apkFolder.get()) ?: error("APK를 찾지 못했어요")
         val output = built.elements.single()
         val versionName = output.versionName ?: error("versionName이 없어요")
@@ -140,6 +164,7 @@ androidComponents {
             artifactsLoader.set(variant.artifacts.getBuiltArtifactsLoader())
             notesFile.set(rootProject.layout.projectDirectory.file("release-notes.txt"))
             outputDir.set(layout.buildDirectory.dir("outputs/update/${variant.name}"))
+            signingMissing.set(variant.buildType == "release" && android.signingConfigs.findByName("release") == null)
         }
     }
 }

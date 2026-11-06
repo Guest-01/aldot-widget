@@ -8,6 +8,11 @@
 # 이 컴퓨터 전용 설정 (SDK 경로 등)
 local.properties
 
+# 서명 키와 비밀번호는 절대 저장소에 두지 않는다 (키는 사용자 폴더의 keys\, 비밀번호는 ~/.gradle/gradle.properties)
+*.jks
+*.keystore
+keystore.properties
+
 # Android Studio / IntelliJ (혼자 개발하고 CLI로 빌드하므로 전부 제외)
 /.idea/
 *.iml
