@@ -41,7 +41,7 @@ android {
         if (keyFile != null) {
             create("release") {
                 storeFile = file(keyFile)
-                // 비밀번호는 파일 대신 Windows 사용자 환경 변수 ALDOT_SIGNING_PASSWORD로 줘도 된다
+                // 비밀번호는 보통 사용자 환경 변수 ALDOT_SIGNING_PASSWORD로 준다 (파일에 적힌 값이 있으면 그쪽이 먼저)
                 storePassword = (project.findProperty("aldot.signing.storePassword") as String?)
                     ?: System.getenv("ALDOT_SIGNING_PASSWORD")
                 keyAlias = (project.findProperty("aldot.signing.keyAlias") as String?) ?: "aldot"

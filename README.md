@@ -116,15 +116,18 @@ Kotlin, Jetpack Compose, Glance(위젯), WorkManager로 만들었어요.
 ### 서명 키
 
 릴리스 APK는 저장소 주인만 가진 서명 키로 서명해요. 키 파일과 비밀번호는 저장소에 없어요.
-릴리스를 만드는 PC의 `C:\Users\<사용자>\.gradle\gradle.properties`(macOS·Linux는 `~/.gradle/gradle.properties`)에 다음을 적어요.
+릴리스를 만드는 PC에 두 가지를 준비해요.
 
-```properties
-aldot.signing.storeFile=C:/Users/<사용자>/keys/aldot-release.jks
-aldot.signing.keyAlias=aldot
-aldot.signing.storePassword=<비밀번호>
-```
+1. **키 위치:** `C:\Users\<사용자>\.gradle\gradle.properties`(macOS·Linux는 `~/.gradle/gradle.properties`)에 적어요.
 
-비밀번호는 파일 대신 환경 변수 `ALDOT_SIGNING_PASSWORD`로 줘도 돼요. 키가 설정되지 않으면 `makeReleaseUpdate`가 멈춰요.
+   ```properties
+   aldot.signing.storeFile=C:/Users/<사용자>/keys/aldot-release.jks
+   aldot.signing.keyAlias=aldot
+   ```
+
+2. **비밀번호:** 사용자 환경 변수 `ALDOT_SIGNING_PASSWORD`에 넣어요. 파일에는 적지 않아요.
+
+키가 설정되지 않으면 `makeReleaseUpdate`가 멈춰요.
 
 받은 APK가 진짜인지 확인하려면 서명 인증서의 SHA-256 지문을 아래와 비교해요.
 
@@ -136,8 +139,11 @@ aldot.signing.storePassword=<비밀번호>
 
 1. `app/build.gradle.kts`의 `versionCode`를 1 올리고 `versionName`을 바꿔요.
 2. `release-notes.txt`에 바뀐 점을 한 줄에 하나씩 써요.
-3. `./gradlew makeReleaseUpdate`를 실행하면 `app/build/outputs/update/release/`에 `aldot-widget-<버전>.apk`와 `update.json`이 생겨요.
-4. GitHub에 `v<버전>` 태그로 릴리스를 만들고 두 파일을 첨부해요. 릴리스 설명에는 바뀐 점을 그대로 붙여 넣어요.
+3. 커밋해서 올린 뒤 `v<버전>` 태그를 올려요 (예: `git tag v1.0.1` → `git push origin v1.0.1`).
+4. GitHub Actions의 '릴리스' 작업이 테스트, 서명, 서명 지문 확인을 거쳐 릴리스를 만들고 `aldot-widget-<버전>.apk`와 `update.json`을 첨부해요.
+
+Actions는 저장소 Secrets `ALDOT_KEYSTORE_BASE64`(키 파일을 base64로 바꾼 것)와 `ALDOT_SIGNING_PASSWORD`를 써요.
+Actions를 쓸 수 없을 때는 PC에서 `./gradlew makeReleaseUpdate`로 같은 두 파일(`app/build/outputs/update/release/`)을 만들어 직접 올려도 돼요.
 
 앱은 `releases/latest/download/update.json`을 읽어요. GitHub API는 쓰지 않아요(로그인 없이는 IP당 시간당 60번 제한).
 다른 주소로 시험하려면 `-Paldot.updateUrl=<주소>`를 붙여 빌드해요.
