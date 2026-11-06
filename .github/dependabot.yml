@@ -1,0 +1,8 @@
+# GitHub Actions 작업에 쓰는 외부 액션의 새 버전을 한 달에 한 번 확인해 PR로 알려 준다.
+# 액션은 커밋 번호로 고정돼 있어서, 이 PR을 합쳐야만 새 버전을 쓴다.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

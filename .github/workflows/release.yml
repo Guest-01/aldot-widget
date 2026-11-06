@@ -1,11 +1,16 @@
 # 릴리스 만들기: v로 시작하는 태그(예: v1.0.1)를 올리면
 # 테스트 → 서명된 APK와 update.json 만들기 → 서명 지문 확인 → GitHub 릴리스까지 한 번에 한다.
-# Actions 화면의 'Run workflow' 버튼으로 돌리면 릴리스는 만들지 않고 결과 파일만 내려받을 수 있게 올린다 (시험용).
+# Actions 화면의 'Run workflow' 버튼으로 main을 골라 돌리면 릴리스는 만들지 않고
+# 결과 파일만 7일 동안 내려받을 수 있게 올린다 (시험용).
 #
 # 필요한 저장소 Secrets
 #   ALDOT_KEYSTORE_BASE64   서명 키 파일(aldot-release.jks)을 base64 글자로 바꾼 것
 #   ALDOT_SIGNING_PASSWORD  서명 키 비밀번호
+#
+# 외부 액션은 바뀔 수 없는 커밋 번호로 고정한다 (이 작업은 서명 키를 쓰므로). 새 버전은 Dependabot이 PR로 알려 준다.
 name: 릴리스
+# 실행 목록에 보이는 제목: 태그로 돌면 "릴리스 v1.0.0", 버튼으로 돌면 "시험 빌드 (main)"
+run-name: ${{ startsWith(github.ref, 'refs/tags/') && format('릴리스 {0}', github.ref_name) || format('시험 빌드 ({0})', github.ref_name) }}
 
 on:
   push:
@@ -21,15 +26,16 @@ jobs:
     env:
       # 이 키의 인증서 지문 (README '서명 키'와 같다). 다른 키로 서명되면 멈춘다
       EXPECTED_CERT_SHA256: 4c95ddb49df9c31f6db8eb82a8605c2a031c970bcb0ae116577d55e1d22f0699
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       - name: Android SDK 준비
         run: |
@@ -38,12 +44,27 @@ jobs:
           "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
 
       - name: 태그와 앱 버전이 같은지 확인
-        if: startsWith(github.ref, 'refs/tags/')
+        if: env.IS_TAG == 'true'
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
             echo "::error::태그($GITHUB_REF_NAME)와 앱 버전(v$VERSION)이 달라요. build.gradle.kts의 versionName을 확인해 주세요"
             exit 1
+          fi
+
+      # versionCode가 지난 릴리스보다 크지 않으면 앱이 새 버전으로 알아채지 못한다
+      - name: versionCode가 지난 릴리스보다 큰지 확인
+        run: |
+          CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          LATEST_URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/update.json"
+          if ! PREV=$(curl -sfL "$LATEST_URL" | grep -oP '"versionCode":\s*\K[0-9]+'); then
+            echo "지난 릴리스가 없어요 (첫 릴리스). versionCode $CODE"
+            exit 0
+          fi
+          echo "지난 릴리스 versionCode $PREV, 이번 $CODE"
+          if [ "$CODE" -le "$PREV" ]; then
+            MSG="versionCode($CODE)가 지난 릴리스($PREV)보다 커야 해요. build.gradle.kts의 versionCode를 올려 주세요"
+            if [ "$IS_TAG" = "true" ]; then echo "::error::$MSG"; exit 1; else echo "::warning::$MSG (시험 빌드라 계속해요)"; fi
           fi
 
       - name: 서명 키 꺼내기
@@ -60,6 +81,7 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-configuration-cache testDebugUnitTest makeReleaseUpdate \
             -Paldot.signing.storeFile="$RUNNER_TEMP/aldot-release.jks" -Paldot.signing.keyAlias=aldot
+          rm -f "$RUNNER_TEMP/aldot-release.jks"
 
       - name: 서명 지문 확인
         run: |
@@ -71,19 +93,33 @@ jobs:
             exit 1
           fi
 
-      - name: 결과 파일 보관 (내려받기용)
-        uses: actions/upload-artifact@v7
+      - name: 결과 파일 보관 (시험 빌드만, 7일)
+        if: env.IS_TAG != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-files
           path: app/build/outputs/update/release/
+          retention-days: 7
 
       - name: GitHub 릴리스 만들기
-        if: startsWith(github.ref, 'refs/tags/')
+        if: env.IS_TAG == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          # release-notes.txt에서 #으로 시작하는 줄을 빼고 바뀐 점만 쓴다
-          grep -v '^#' release-notes.txt | sed '/^\s*$/d' > "$RUNNER_TEMP/notes.md"
+          FINGERPRINT=$(echo "$EXPECTED_CERT_SHA256" | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          {
+            echo "## 바뀐 점"
+            echo
+            # release-notes.txt에서 #으로 시작하는 줄과 빈 줄을 빼고, 줄마다 "- "를 붙인다
+            grep -v '^#' release-notes.txt | sed '/^\s*$/d; s/^- //; s/^/- /'
+            echo
+            echo "## 설치"
+            echo
+            echo "아래 \`aldot-widget-${VERSION}.apk\`를 폰에서 받아 열어요. 처음이라면 [설치 안내](https://github.com/${GITHUB_REPOSITORY}#설치)를 먼저 봐 주세요."
+            echo "이미 설치했다면 앱이 알아서 알려 줘요."
+            echo
+            echo "서명 인증서 SHA-256: \`${FINGERPRINT}\`"
+          } > "$RUNNER_TEMP/notes.md"
           gh release create "$GITHUB_REF_NAME" app/build/outputs/update/release/* \
             --title "남았닷 $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --latest
