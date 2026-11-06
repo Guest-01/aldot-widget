@@ -14,7 +14,7 @@
 
 | 앱 홈 | 홈 화면 위젯 | 설정 |
 | :---: | :---: | :---: |
-| ![앱 홈: 남은 데이터 계기판, 음성·문자, 회선 정보](docs/images/home.png) | ![홈 화면 위젯: 1×1 고리, 2×2 사용량 요약](docs/images/widgets.jpg) | ![설정: 동작 점검 카드, 갱신 주기, 테마 색](docs/images/settings.png) |
+| ![앱 홈: 남은 데이터 계기판, 음성·문자, 회선 정보](docs/images/home.png) | ![홈 화면 위젯: 1×1 고리, 2×2 사용량 요약](docs/images/widgets.jpg) | ![설정: 앱 카드와 업데이트 확인, 위젯 동작, 테마 색](docs/images/settings.png) |
 
 **[최신 버전 받기](https://github.com/Guest-01/aldot-widget/releases/latest)** · Android 8.0 이상
 
@@ -54,7 +54,7 @@
 ### 업데이트
 
 앱이 하루 한 번 새 버전이 나왔는지 확인하고, 나오면 소리 없는 알림으로 알려 줘요.
-'설정 → 앱 정보'에서 **지금 확인**으로 바로 확인할 수도 있어요.
+'설정' 맨 위 앱 카드의 **업데이트 확인**으로 바로 확인할 수도 있어요.
 
 - **바로 설치**를 누르면 앱이 새 버전을 받아 설치해요. 처음 한 번은 남았닷에 **출처를 알 수 없는 앱 설치**를 허용해야 해요. Android 12 이상에서는 그다음부터 확인 창 없이 설치돼요.
 - **브라우저로 받기**를 누르거나, [최신 버전](https://github.com/Guest-01/aldot-widget/releases/latest)의 `.apk`를 직접 받아 설치해도 돼요.
@@ -102,7 +102,7 @@
 [Issues](https://github.com/Guest-01/aldot-widget/issues)에 아래 내용을 적어 주세요.
 
 - 폰 기종과 Android(One UI) 버전
-- 앱 버전 ('설정 → 앱 정보'에 나와요)
+- 앱 버전 ('설정' 맨 위에 나와요)
 - 어떤 화면에서 무슨 일이 있었는지
 
 > [!IMPORTANT]
@@ -127,5 +127,5 @@ Kotlin, Jetpack Compose, Glance(위젯), WorkManager로 만들었어요.
 
 [MIT](LICENSE)
 
-앱이 쓰는 오픈소스 라이브러리의 라이선스는 앱의 '설정 → 앱 정보 → 오픈소스 라이선스'에서 볼 수 있어요.
+앱이 쓰는 오픈소스 라이브러리의 라이선스는 앱의 '설정 → 오픈소스 라이선스'에서 볼 수 있어요.
 아이콘은 [Lucide](https://lucide.dev)(ISC License)를 썼어요.

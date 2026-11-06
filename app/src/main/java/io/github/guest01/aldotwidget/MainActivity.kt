@@ -41,14 +41,13 @@ import io.github.guest01.aldotwidget.ui.onboarding.OnboardingScreen
 import io.github.guest01.aldotwidget.ui.onboarding.StepPosition
 import io.github.guest01.aldotwidget.ui.onboarding.WelcomeScreen
 import io.github.guest01.aldotwidget.ui.onboarding.onboardingSteps
-import io.github.guest01.aldotwidget.ui.settings.AboutScreen
 import io.github.guest01.aldotwidget.ui.settings.SettingsScreen
 import io.github.guest01.aldotwidget.ui.theme.AldotWidgetTheme
 import io.github.guest01.aldotwidget.widget.SquareWidgetReceiver
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    /** 새 버전 알림을 눌러 열렸는지. 홈 → 설정 → 앱 정보로 가서 업데이트 창을 띄운다 */
+    /** 새 버전 알림을 눌러 열렸는지. 홈 → 설정으로 가서 업데이트 창을 띄운다 */
     private val openUpdate = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,20 +99,17 @@ private fun AldotRoot(
         ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(context)
     }
 
-    // 홈 ↔ 설정 ↔ 앱 정보. 화면이 몇 개뿐이라 내비게이션 라이브러리 없이 상태로 바꾼다 (회전해도 유지).
+    // 홈 ↔ 설정. 화면이 몇 개뿐이라 내비게이션 라이브러리 없이 상태로 바꾼다 (회전해도 유지).
     var showSettings by rememberSaveable { mutableStateOf(false) }
-    var showAbout by rememberSaveable { mutableStateOf(false) }
-    // 알림을 눌러 들어왔으면 앱 정보에서 업데이트 창을 바로 띄운다 (한 번만)
+    // 알림을 눌러 들어왔으면 설정에서 업데이트 창을 바로 띄운다 (한 번만)
     var openSheetOnStart by remember { mutableStateOf(false) }
-    BackHandler(enabled = showSettings && !showAbout) { showSettings = false }
-    BackHandler(enabled = showAbout) { showAbout = false }
+    BackHandler(enabled = showSettings) { showSettings = false; openSheetOnStart = false }
     // 로그아웃 뒤 다시 로그인하면 설정이 아니라 홈으로 돌아오게 한다
     val needLogin = state is MainUiState.NeedLogin
-    LaunchedEffect(needLogin) { if (needLogin) { showSettings = false; showAbout = false } }
+    LaunchedEffect(needLogin) { if (needLogin) showSettings = false }
     LaunchedEffect(openUpdate) {
         if (openUpdate) {
             showSettings = true
-            showAbout = true
             openSheetOnStart = true
             onOpenUpdateHandled()
         }
@@ -167,13 +163,6 @@ private fun AldotRoot(
                         onFinished = viewModel::completeOnboarding,
                         modifier = modifier,
                     )
-                    showSettings && showAbout -> AboutScreen(
-                        update = update,
-                        updates = viewModel.updates,
-                        onBack = { showAbout = false },
-                        openSheetOnStart = openSheetOnStart,
-                        modifier = modifier,
-                    )
                     showSettings -> SettingsScreen(
                         refreshInterval = current.refreshInterval,
                         onRefreshIntervalChange = viewModel::setRefreshInterval,
@@ -183,11 +172,12 @@ private fun AldotRoot(
                         onFixBattery = { batteryLauncher.launch(batteryExemptionIntent(context)) },
                         notificationsOn = notificationsOn,
                         onFixNotifications = { context.startActivity(notificationSettingsIntent(context)) },
-                        hasUpdate = update.available != null,
-                        onOpenAbout = { showAbout = true; openSheetOnStart = false },
+                        update = update,
+                        updates = viewModel.updates,
                         onLogout = viewModel::logout,
-                        onBack = { showSettings = false },
+                        onBack = { showSettings = false; openSheetOnStart = false },
                         modifier = modifier,
+                        openSheetOnStart = openSheetOnStart,
                     )
                     else -> HomeScreen(
                         ready = s,

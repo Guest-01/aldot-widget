@@ -28,7 +28,7 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 
-/** 앱 정보 화면의 확인 상태 */
+/** 설정 앱 카드의 확인 상태 */
 enum class CheckState { IDLE, CHECKING, FAILED }
 
 /** 업데이트 창의 설치 단계 */
@@ -66,7 +66,7 @@ data class UpdateUiState(
 /**
  * 업데이트 확인과 앱 안 설치를 맡는다. 앱 전체에서 하나 (AppContainer).
  *
- * - 확인: 하루 한 번(자동 갱신 작업, 앱을 열 때) 또는 앱 정보의 '지금 확인'. 새 버전을 찾으면 버전마다 한 번 알린다.
+ * - 확인: 하루 한 번(자동 갱신 작업, 앱을 열 때) 또는 설정 앱 카드의 '업데이트 확인'. 새 버전을 찾으면 버전마다 한 번 알린다.
  * - 설치: APK를 앱 캐시에 받고 크기·sha256을 확인한 뒤 PackageInstaller로 설치한다.
  *   Android 12+에서 자기 자신을 업데이트할 때는 확인 창 없이 설치된다 (USER_ACTION_NOT_REQUIRED,
  *   설치 허용과 매니페스트의 UPDATE_PACKAGES_WITHOUT_USER_ACTION이 필요하다). 설치되는 동안 앱 프로세스는 끝난다.
@@ -105,7 +105,7 @@ class UpdateManager(
         scope.launch { checkIfDue() }
     }
 
-    /** 앱 정보의 '지금 확인' */
+    /** 설정 앱 카드의 '업데이트 확인' */
     fun checkNow() {
         if (_state.value.check == CheckState.CHECKING) return
         scope.launch { check(byUser = true) }
