@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.guest01.aldotwidget.BuildConfig
 import io.github.guest01.aldotwidget.R
 import io.github.guest01.aldotwidget.ui.theme.AldotTheme
 import io.github.guest01.aldotwidget.update.UpdateUiState
@@ -91,6 +93,27 @@ internal fun checkedText(update: UpdateUiState): String {
     }
     val how = if (update.checkedByUser) "" else "자동으로 "
     return "$day %02d:%02d에 ${how}확인했어요".format(at.hour, at.minute)
+}
+
+/**
+ * 'GitHub 새 이슈' 주소. 앱 버전·Android 버전·기기 모델을 미리 채운다 (사용량·번호 같은 개인정보는 넣지 않는다).
+ * 이슈는 공개 글이라 본문 맨 위에 그 점을 알린다.
+ */
+internal fun issueUrl(): String {
+    val body = """
+        |<!-- 이 글은 누구나 볼 수 있어요. 전화번호나 사용량이 보이는 캡처는 가려서 올려 주세요. -->
+        |
+        |### 어떤 화면에서 무슨 일이 있었나요?
+        |
+        |
+        |### 기기 정보 (자동으로 채워졌어요)
+        |- 앱 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})
+        |- Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
+        |- 기기: ${Build.MANUFACTURER} ${Build.MODEL}
+    """.trimMargin()
+    return Uri.parse("$REPO_URL/issues/new").buildUpon()
+        .appendQueryParameter("body", body)
+        .build().toString()
 }
 
 internal fun openUrl(context: Context, url: String) {

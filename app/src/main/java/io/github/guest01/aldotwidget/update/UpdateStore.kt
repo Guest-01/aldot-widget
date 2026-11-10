@@ -3,6 +3,7 @@ package io.github.guest01.aldotwidget.update
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -30,9 +31,14 @@ class UpdateStore(context: Context) {
     suspend fun available(): UpdateInfo? =
         prefs()[AVAILABLE]?.let { runCatching { UpdateInfo.parse(it) }.getOrNull() }
 
-    suspend fun saveCheck(at: Long, available: UpdateInfo?) {
+    /** 마지막 확인을 '업데이트 확인' 버튼으로 했는지 ("자동으로 확인했어요"를 맞게 보여 주려고) */
+    suspend fun lastCheckedByUser(): Boolean = prefs()[LAST_CHECKED_BY_USER] ?: false
+
+    /** byUser가 null이면 확인 방법 기록은 그대로 둔다 (확인 시각만 고칠 때) */
+    suspend fun saveCheck(at: Long, available: UpdateInfo?, byUser: Boolean? = null) {
         dataStore.edit {
             it[LAST_CHECKED_AT] = at
+            if (byUser != null) it[LAST_CHECKED_BY_USER] = byUser
             if (available != null) it[AVAILABLE] = UpdateInfo.toJson(available) else it.remove(AVAILABLE)
         }
     }
@@ -53,6 +59,7 @@ class UpdateStore(context: Context) {
 
     private companion object {
         val LAST_CHECKED_AT = longPreferencesKey("last_checked_at")
+        val LAST_CHECKED_BY_USER = booleanPreferencesKey("last_checked_by_user")
         val AVAILABLE = stringPreferencesKey("available")
         val NOTIFIED_CODE = intPreferencesKey("notified_version_code")
         val INSTALLING_CODE = intPreferencesKey("installing_version_code")

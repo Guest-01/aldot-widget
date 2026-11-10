@@ -3,6 +3,7 @@ package io.github.guest01.aldotwidget.ui.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -162,6 +163,12 @@ fun SettingsScreen(
                     ThemeColorPicker(themeColor, onThemeColorChange, Modifier.offset(x = 10.dp))
                 }
 
+                SectionTitle("도움", modifier = Modifier.padding(top = 20.dp))
+                LinkRow(
+                    R.drawable.ic_message_alert, "문제 알리기", "GitHub에 앱·기기 정보를 채워 열어요",
+                    onClick = { openUrl(context, issueUrl()) },
+                )
+
                 // 큰 글자에서 한쪽만 두 줄이 돼도 두 버튼 높이를 맞춘다
                 Row(
                     Modifier.fillMaxWidth().padding(top = 18.dp).height(IntrinsicSize.Min),
@@ -242,8 +249,9 @@ private fun AppCard(update: UpdateUiState, onCheck: () -> Unit, onOpenUpdate: ()
         checking -> CardStatus("확인하는 중…", colors.sub)
         available != null -> CardStatus("새 버전 ${UpdateText.subject(available.version)} 나왔어요", colors.accent, bold = true)
         update.check == CheckState.FAILED -> CardStatus("확인하지 못했어요", colors.warn, bold = true)
-        // 직접 확인했으면 결과를, 하루 한 번 확인이면 언제 확인했는지를 보여 준다
-        update.lastCheckedAt > 0 && update.checkedByUser -> CardStatus("최신 버전이에요", colors.accent, bold = true, check = true)
+        // 이번에 직접 확인했으면 결과를, 아니면 언제(자동으로/직접) 확인했는지를 보여 준다
+        update.lastCheckedAt > 0 && update.checkedByUser && update.checkedThisSession ->
+            CardStatus("최신 버전이에요", colors.accent, bold = true, check = true)
         update.lastCheckedAt > 0 -> CardStatus(checkedText(update), colors.sub)
         else -> CardStatus("아직 확인하지 않았어요", colors.sub)
     }
@@ -408,6 +416,32 @@ private fun FixButton(onClick: () -> Unit) {
         Box(Modifier.heightIn(min = 34.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
             Text("켜기", fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, color = colors.warn)
         }
+    }
+}
+
+/** 묶음 안에서 누르면 다른 곳으로 가는 줄: 아이콘 받침 + 이름과 설명 + 바깥 링크 표시 */
+@Composable
+private fun LinkRow(icon: Int, label: String, sub: String, onClick: () -> Unit) {
+    val colors = AldotTheme.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(colors.segment),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(painterResource(icon), contentDescription = null, tint = colors.sub, modifier = Modifier.size(17.dp))
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(label, fontSize = 15.sp, lineHeight = 20.sp, color = colors.text)
+            Text(sub, fontSize = 12.sp, lineHeight = 17.sp, color = colors.muted, modifier = Modifier.padding(top = 2.dp))
+        }
+        Icon(painterResource(R.drawable.ic_external_link), contentDescription = null, tint = colors.muted, modifier = Modifier.size(16.dp))
     }
 }
 

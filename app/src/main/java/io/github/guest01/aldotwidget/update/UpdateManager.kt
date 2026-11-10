@@ -56,8 +56,10 @@ data class UpdateUiState(
     val check: CheckState = CheckState.IDLE,
     /** 마지막으로 확인에 성공한 시각. 0이면 아직 확인 전 */
     val lastCheckedAt: Long = 0L,
-    /** 방금 직접 확인했는지 ("방금 확인했어요") */
+    /** 마지막 확인을 '업데이트 확인' 버튼으로 했는지. 저장해 두어서 앱을 다시 열어도 맞게 보인다 */
     val checkedByUser: Boolean = false,
+    /** 이번에 앱을 연 뒤 직접 확인했는지. 그때만 확인 결과("최신 버전이에요")를 보여 준다 */
+    val checkedThisSession: Boolean = false,
     /** 찾아 둔 새 버전. 최신이면 null */
     val available: UpdateInfo? = null,
     val install: InstallState = InstallState.None,
@@ -92,7 +94,12 @@ class UpdateManager(
         scope.launch {
             val available = store.available()?.takeIf { it.isNewerThan(currentVersionCode) }
             val lastCheckedAt = store.lastCheckedAt()
-            _state.update { it.copy(lastCheckedAt = lastCheckedAt, available = it.available ?: available) }
+            val byUser = store.lastCheckedByUser()
+            _state.update {
+                // 앱을 열자마자 확인이 먼저 끝났으면 그 결과를 덮어쓰지 않는다
+                if (it.lastCheckedAt > lastCheckedAt) it.copy(available = it.available ?: available)
+                else it.copy(lastCheckedAt = lastCheckedAt, checkedByUser = byUser, available = it.available ?: available)
+            }
         }
     }
 
@@ -117,10 +124,11 @@ class UpdateManager(
             val info = checker.fetch()
             val newer = info.takeIf { it.isNewerThan(currentVersionCode) }
             val now = System.currentTimeMillis()
-            store.saveCheck(now, newer)
+            store.saveCheck(now, newer, byUser)
             _state.update {
                 it.copy(
-                    check = CheckState.IDLE, lastCheckedAt = now, checkedByUser = byUser, available = newer,
+                    check = CheckState.IDLE, lastCheckedAt = now, checkedByUser = byUser,
+                    checkedThisSession = it.checkedThisSession || byUser, available = newer,
                     // 더 새 버전이 나왔으면 이전 버전의 실패 안내는 지운다
                     install = if (newer?.versionCode != it.available?.versionCode) InstallState.None else it.install,
                 )
