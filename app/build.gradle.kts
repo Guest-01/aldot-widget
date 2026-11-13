@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries.android)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -53,6 +54,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 정식판이 깔린 폰에 개발용 앱을 덮어 설치해 볼 때만: -Paldot.debugWithReleaseKey
+            // (서명이 같아야 덮어 설치되고 로그인·데이터가 그대로 남는다). 평소에는 개발용 키로 서명한다
+            if (project.hasProperty("aldot.debugWithReleaseKey")) {
+                signingConfig = signingConfigs.findByName("release")
+                    ?: error("릴리스 서명 키가 설정되지 않았어요 (README의 '서명 키')")
+            }
+        }
         release {
             signingConfig = signingConfigs.findByName("release")
             optimization {
@@ -67,6 +76,19 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    testOptions {
+        // 스냅숏 테스트(Robolectric)가 앱의 리소스·테마를 쓸 수 있게
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            // 새 Java(21+)에서 Robolectric이 내부 클래스에 접근할 수 있게 연다
+            it.jvmArgs(
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
+                "--enable-native-access=ALL-UNNAMED",
+            )
+        }
     }
 }
 
@@ -88,6 +110,13 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
+    // 화면 스냅숏 테스트 (src/test/.../screenshot). ./gradlew recordRoborazziDebug 로 그림을 찍는다
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
 // 오픈소스 라이선스 목록 (설정 → 오픈소스 라이선스). 빌드할 때 의존성과 라이선스를 모아 res/raw/aboutlibraries.json을 만든다

@@ -7,10 +7,14 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import io.github.guest01.aldotwidget.data.ThemeColor
+import io.github.guest01.aldotwidget.ui.LocalReduceMotion
+import io.github.guest01.aldotwidget.ui.reduceMotionEnabled
 
 private val LocalAppColors = staticCompositionLocalOf { LightAppColors }
 
@@ -63,7 +67,10 @@ fun AldotWidgetTheme(
         errorContainer = colors.warnBg,
         onErrorContainer = colors.text,
     )
-    CompositionLocalProvider(LocalAppColors provides colors) {
+    // '애니메이션 제거'를 켠 폰에서는 안내 애니메이션을 마지막 모습으로만 보여 준다
+    val context = LocalContext.current
+    val reduceMotion = remember(context) { reduceMotionEnabled(context) }
+    CompositionLocalProvider(LocalAppColors provides colors, LocalReduceMotion provides reduceMotion) {
         MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
     }
 }

@@ -48,6 +48,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import io.github.guest01.aldotwidget.ui.DrawnCheck
+import io.github.guest01.aldotwidget.ui.overshoot
+import io.github.guest01.aldotwidget.ui.rememberGuideClock
+import io.github.guest01.aldotwidget.ui.rippleAlpha
+import io.github.guest01.aldotwidget.ui.seg
+import io.github.guest01.aldotwidget.ui.smooth
+import kotlin.math.PI
+import kotlin.math.sin
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -115,6 +125,7 @@ internal enum class WidgetChoice(
  * 첫 로그인 직후 한 번 보여 주는 단계별 안내 (시안 ③~⑥). 위젯 앱은 앱보다 홈 화면에서 쓰는 게 목적이라,
  * 위젯이 제대로 돌아가는 데 필요한 설정을 처음에 한 번에 끝내게 한다. 모든 단계는 건너뛸 수 있다.
  * 단계 번호는 로그인(1)에서 이어서 센다.
+ * stepsOverride: 이미 허용됐어도 보여 줄 단계 (개발용 미리보기에서 모든 단계를 볼 때만)
  */
 @Composable
 fun OnboardingScreen(
@@ -123,10 +134,11 @@ fun OnboardingScreen(
     refreshInterval: RefreshInterval,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
+    stepsOverride: List<OnboardingStep>? = null,
 ) {
     val context = LocalContext.current
     // 시작할 때 한 번만 정한다. 진행 중에 알림이 허용되면서 목록이 바뀌면 번호가 흔들린다.
-    val steps = rememberSaveable { onboardingSteps(context).map { it.name } }.map(OnboardingStep::valueOf)
+    val steps = rememberSaveable { (stepsOverride ?: onboardingSteps(context)).map { it.name } }.map(OnboardingStep::valueOf)
     var index by rememberSaveable { mutableIntStateOf(0) }
     var requestedWidget by rememberSaveable { mutableStateOf<String?>(null) }
     val next: () -> Unit = { index++ }
@@ -177,11 +189,30 @@ private fun NotificationStep(position: StepPosition, onBack: (() -> Unit)?, onDo
         },
         modifier = modifier,
     ) {
-        val colors = AldotTheme.colors
-        // 실제로 보내는 알림(Notifier)과 같은 문구의 미리보기
+        NotificationPreview()
+    }
+}
+
+/**
+ * 받게 될 알림 미리보기 (실제로 보내는 알림(Notifier)과 같은 문구).
+ * 진짜 알림처럼 위에서 내려와 살짝 튕기고, 이어서 '허용' 안내가 나타난다 (시안 '안내 애니메이션' ③). 한 번만.
+ */
+@Composable
+internal fun NotificationPreview() {
+    val colors = AldotTheme.colors
+    val t by rememberGuideClock(cycleMs = 1600, repeats = 1)
+    val drop = seg(t, 0f, 0.45f)
+    val hint = smooth(seg(t, 0.5f, 0.75f))
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.segment).padding(horizontal = 16.dp, vertical = 28.dp)) {
             Row(
-                Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp))
+                Modifier.fillMaxWidth()
+                    // 진짜 알림처럼 회색 판 위쪽 가장자리 너머에서 미끄러져 내려온다 (판이 잘라 줘서 처음엔 안 보인다).
+                    // 흐려지기(alpha)는 쓰지 않는다: 반투명한 동안은 그림자가 잘려 보여서 어색하다
+                    .graphicsLayer {
+                        translationY = -(size.height + 28.dp.toPx()) * (1f - overshoot(drop))
+                    }
+                    .shadow(6.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp))
                     .background(colors.raised).padding(horizontal = 16.dp, vertical = 14.dp),
             ) {
                 Box(
@@ -201,13 +232,18 @@ private fun NotificationStep(position: StepPosition, onBack: (() -> Unit)?, onDo
             }
         }
         // 위 그림은 나중에 받을 알림이고, 버튼을 누르면 바로 뜨는 건 권한 창이라 무엇을 누를지 따로 알려 준다
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Text(
-                "다음 창에서 '허용'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent,
-                modifier = Modifier.padding(top = 16.dp),
-            )
+        Column(
+            Modifier.graphicsLayer { alpha = hint; translationY = 6.dp.toPx() * (1f - hint) },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Text(
+                    "다음 창에서 '허용'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
+            Text("이 알림 말고는 보내지 않아요", fontSize = 13.sp, color = colors.muted, modifier = Modifier.padding(top = 6.dp))
         }
-        Text("이 알림 말고는 보내지 않아요", fontSize = 13.sp, color = colors.muted, modifier = Modifier.padding(top = 6.dp))
     }
 }
 
@@ -227,76 +263,105 @@ private fun BatteryStep(position: StepPosition, onBack: (() -> Unit)?, onDone: (
         onPrimary = { launcher.launch(batteryExemptionIntent(context)) },
         modifier = modifier,
     ) {
-        val colors = AldotTheme.colors
-        // 다음에 뜰 시스템 창을 미리 보여 주고 어느 버튼을 누르면 되는지 알려 준다
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.segment)
-                .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("다음 화면에서 이런 창이 떠요", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.sub)
-            // 갤럭시는 같은 요청을 다른 제목과 버튼(취소 / 확인)으로 보여 준다. Fold8(One UI 9)에서 확인한 문구.
-            val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-            val okLabel = if (samsung) "확인" else "허용"
-            Column(
-                Modifier.padding(top = 10.dp).fillMaxWidth().shadow(6.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp))
-                    .background(colors.raised).padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
-            ) {
-                if (samsung) {
-                    Text("배터리 사용량 최적화 중지", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                    Text(
-                        "${stringResource(R.string.app_name)}은(는) 백그라운드에서 실행될 수 있으며, 배터리를 제한 없이 사용할 수 있습니다.",
-                        fontSize = 13.sp, lineHeight = 19.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp),
-                    )
-                    // 갤럭시 창처럼 두 버튼을 반씩 나눠 가운데에 둔다
-                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            Text("취소", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(vertical = 10.dp))
-                        }
-                        Box(Modifier.width(1.dp).height(16.dp).background(colors.divider))
-                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            PreviewOkButton(okLabel)
-                        }
-                    }
-                } else {
-                    Text("앱이 백그라운드에서 항상 실행되도록 허용할까요?", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
-                    Text("배터리 사용량이 늘어날 수 있어요.", fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp))
-                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("거부", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
-                        PreviewOkButton(okLabel)
-                    }
-                }
-            }
-            val hint = @Composable {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(R.drawable.ic_arrow_upward), contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
-                    Text("'$okLabel'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(start = 6.dp))
-                }
-            }
-            if (samsung) {
-                // '확인' 버튼이 있는 오른쪽 절반의 가운데에 맞춘다
-                Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
-                    Spacer(Modifier.weight(1f))
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { hint() }
-                }
-            } else {
-                Box(Modifier.align(Alignment.End).padding(top = 10.dp, end = 8.dp)) { hint() }
-            }
-        }
+        // 갤럭시는 같은 요청을 다른 제목과 버튼(취소 / 확인)으로 보여 준다. Fold8(One UI 9)에서 확인한 문구.
+        BatteryDialogPreview(samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true))
         Text(
             "시험한 폰에서는 하루 배터리 사용량의 0.2% 미만이었어요\n실제 창의 문구는 폰마다 조금 달라요",
-            fontSize = 13.sp, lineHeight = 20.sp, color = colors.muted, textAlign = TextAlign.Center,
+            fontSize = 13.sp, lineHeight = 20.sp, color = AldotTheme.colors.muted, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 12.dp),
         )
     }
 }
 
-/** 미리보기 창에서 눌러야 할 버튼. 테두리로 짚어 준다. */
+/**
+ * 다음에 뜰 시스템 창을 미리 보여 주고 어느 버튼을 누르면 되는지 알려 준다.
+ * 눌러야 할 버튼이 눌리는 모습(살짝 줄었다 커짐 + 물결)을 몇 번 보여 주고, 아래 화살표가 까딱인다 (시안 '안내 애니메이션' ②).
+ */
 @Composable
-private fun PreviewOkButton(label: String) {
+internal fun BatteryDialogPreview(samsung: Boolean) {
     val colors = AldotTheme.colors
-    Surface(shape = CircleShape, color = colors.raised, border = BorderStroke(2.dp, colors.accent)) {
-        Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+    val okLabel = if (samsung) "확인" else "허용"
+    val t by rememberGuideClock(cycleMs = 2800)
+    val bob by rememberGuideClock(cycleMs = 1400, repeats = 4)
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.segment)
+            .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("다음 화면에서 이런 창이 떠요", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = colors.sub)
+        Column(
+            Modifier.padding(top = 10.dp).fillMaxWidth().shadow(6.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp))
+                .background(colors.raised).padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+        ) {
+            if (samsung) {
+                Text("배터리 사용량 최적화 중지", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
+                Text(
+                    "${stringResource(R.string.app_name)}은(는) 백그라운드에서 실행될 수 있으며, 배터리를 제한 없이 사용할 수 있습니다.",
+                    fontSize = 13.sp, lineHeight = 19.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp),
+                )
+                // 갤럭시 창처럼 두 버튼을 반씩 나눠 가운데에 둔다
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text("취소", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(vertical = 10.dp))
+                    }
+                    Box(Modifier.width(1.dp).height(16.dp).background(colors.divider))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        PreviewOkButton(okLabel, t)
+                    }
+                }
+            } else {
+                Text("앱이 백그라운드에서 항상 실행되도록 허용할까요?", fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, color = colors.text)
+                Text("배터리 사용량이 늘어날 수 있어요.", fontSize = 13.sp, color = colors.sub, modifier = Modifier.padding(top = 6.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("거부", fontSize = 14.sp, color = colors.sub, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                    PreviewOkButton(okLabel, t)
+                }
+            }
+        }
+        val hint = @Composable {
+            Row(
+                Modifier.graphicsLayer { translationY = -5.dp.toPx() * sin(PI.toFloat() * bob) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(R.drawable.ic_arrow_upward), contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                Text("'$okLabel'을 눌러 주세요", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+        if (samsung) {
+            // '확인' 버튼이 있는 오른쪽 절반의 가운데에 맞춘다
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { hint() }
+            }
+        } else {
+            Box(Modifier.align(Alignment.End).padding(top = 10.dp, end = 8.dp)) { hint() }
+        }
+    }
+}
+
+/**
+ * 미리보기 창에서 눌러야 할 버튼. 실제 창처럼 테두리 없이, 옅은 강조색 바탕으로 짚어 주고
+ * 시계 t에 맞춰 눌리는 모습과 물결을 보여 준다
+ */
+@Composable
+private fun PreviewOkButton(label: String, t: Float) {
+    val colors = AldotTheme.colors
+    val press = seg(t, 0.30f, 0.46f)
+    val scale = 1f - 0.08f * sin(PI.toFloat() * press)
+    val ripple = seg(t, 0.28f, 0.50f)
+    Box(
+        Modifier.drawBehind {
+            val alpha = rippleAlpha(ripple)
+            if (alpha > 0f) drawCircle(colors.accent.copy(alpha = alpha), radius = 48.dp.toPx() * (0.4f + 0.6f * ripple))
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            shape = CircleShape, color = colors.accent.copy(alpha = 0.14f),
+            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale },
+        ) {
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+        }
     }
 }
 
@@ -446,18 +511,7 @@ private fun DoneStep(
             Modifier.widthIn(max = MaxContentWidth).fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 72.dp, bottom = 24.dp),
         ) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Box(Modifier.size(64.dp).clip(CircleShape).background(colors.button), contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-                }
-                Text(
-                    accentTitle("준비 끝!\n이제 ", "홈 화면", "에서 확인하세요"),
-                    fontSize = 26.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
-                    color = colors.text, modifier = Modifier.padding(top = 24.dp),
-                )
-                Text(
-                    "위젯이 ${refreshInterval.label}마다 알아서 갱신돼요.",
-                    fontSize = 15.sp, lineHeight = 24.sp, color = colors.sub, modifier = Modifier.padding(top = 12.dp),
-                )
+                DoneHeader(refreshInterval)
                 Column(Modifier.padding(top = 32.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.panel).padding(horizontal = 18.dp)) {
                     SummaryLine("알닷 로그인", ok = true, value = "연결됨")
                     SummaryDivider()
@@ -523,4 +577,31 @@ private fun SummaryLine(label: String, ok: Boolean, value: String, detail: Strin
 @Composable
 private fun SummaryDivider() {
     HorizontalDivider(thickness = 1.dp, color = AldotTheme.colors.divider)
+}
+
+
+/** '준비 끝!' 머리: 동그라미가 톡 커지며 체크가 그려지고, 문구가 아래에서 올라온다 (시안 애니메이션 ⑨). 한 번만 */
+@Composable
+internal fun DoneHeader(refreshInterval: RefreshInterval) {
+    val colors = AldotTheme.colors
+    val t by rememberGuideClock(cycleMs = 1400, repeats = 1, startDelayMs = 150)
+    val pop = overshoot(seg(t, 0f, 0.3f))
+    val text = smooth(seg(t, 0.35f, 0.7f))
+    Box(
+        Modifier.size(64.dp).graphicsLayer { scaleX = pop; scaleY = pop }.clip(CircleShape).background(colors.button),
+        contentAlignment = Alignment.Center,
+    ) {
+        DrawnCheck(seg(t, 0.2f, 0.55f), Color.White, Modifier.size(34.dp), strokeWidth = 3.2.dp)
+    }
+    Column(Modifier.graphicsLayer { alpha = text; translationY = 10.dp.toPx() * (1f - text) }) {
+        Text(
+            accentTitle("준비 끝!\n이제 ", "홈 화면", "에서 확인하세요"),
+            fontSize = 26.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
+            color = colors.text, modifier = Modifier.padding(top = 24.dp),
+        )
+        Text(
+            "위젯이 ${refreshInterval.label}마다 알아서 갱신돼요.",
+            fontSize = 15.sp, lineHeight = 24.sp, color = colors.sub, modifier = Modifier.padding(top = 12.dp),
+        )
+    }
 }

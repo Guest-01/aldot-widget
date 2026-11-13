@@ -1,5 +1,23 @@
 package io.github.guest01.aldotwidget.ui.settings
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import io.github.guest01.aldotwidget.ui.DrawnCheck
+import io.github.guest01.aldotwidget.ui.LocalReduceMotion
+import io.github.guest01.aldotwidget.ui.motionTween
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -39,6 +57,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import io.github.guest01.aldotwidget.ui.motionSpec
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -241,7 +261,7 @@ internal fun ScreenHeader(title: String, onBack: () -> Unit, modifier: Modifier 
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AppCard(update: UpdateUiState, onCheck: () -> Unit, onOpenUpdate: () -> Unit, modifier: Modifier = Modifier) {
+internal fun AppCard(update: UpdateUiState, onCheck: () -> Unit, onOpenUpdate: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AldotTheme.colors
     val available = update.available
     val checking = update.check == CheckState.CHECKING
@@ -255,9 +275,15 @@ private fun AppCard(update: UpdateUiState, onCheck: () -> Unit, onOpenUpdate: ()
         update.lastCheckedAt > 0 -> CardStatus(checkedText(update), colors.sub)
         else -> CardStatus("아직 확인하지 않았어요", colors.sub)
     }
+    val reduce = LocalReduceMotion.current
+    // 새 버전을 찾으면 카드가 옅은 테마 색으로 물든다 — 시안 애니메이션 ⑥
+    val cardBg by animateColorAsState(if (available != null) colors.stage else colors.segment, motionTween(400), label = "appCard")
+    val lineColor by animateColorAsState(
+        if (available != null) colors.accent.copy(alpha = 0.15f) else colors.line, motionTween(400), label = "appCardLine",
+    )
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-            .background(if (available != null) colors.stage else colors.segment)
+            .background(cardBg)
             .padding(18.dp),
     ) {
         Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
@@ -272,32 +298,52 @@ private fun AppCard(update: UpdateUiState, onCheck: () -> Unit, onOpenUpdate: ()
         }
         HorizontalDivider(
             thickness = 1.dp, modifier = Modifier.padding(top = 14.dp),
-            color = if (available != null) colors.accent.copy(alpha = 0.15f) else colors.line,
+            color = lineColor,
         )
         FlowRow(
             Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                Modifier.padding(end = 10.dp).heightIn(min = 48.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (status.check) {
-                    Icon(
-                        painterResource(R.drawable.ic_check), contentDescription = null, tint = status.ink,
-                        modifier = Modifier.padding(end = 4.dp).size(15.dp),
+            AnimatedContent(
+                targetState = status,
+                transitionSpec = {
+                    (fadeIn(motionSpec(reduce, 220, delay = 80)) + slideInVertically(motionSpec(reduce, 220, delay = 80)) { it / 3 })
+                        .togetherWith(fadeOut(motionSpec(reduce, 120)))
+                },
+                contentAlignment = Alignment.CenterStart,
+                label = "appCardStatus",
+            ) { shown ->
+                Row(
+                    Modifier.padding(end = 10.dp).heightIn(min = 48.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (shown.check) {
+                        Icon(
+                            painterResource(R.drawable.ic_check), contentDescription = null, tint = shown.ink,
+                            modifier = Modifier.padding(end = 4.dp).size(15.dp),
+                        )
+                    }
+                    Text(
+                        shown.text, fontSize = 13.sp, lineHeight = 18.sp, color = shown.ink,
+                        fontWeight = if (shown.bold) FontWeight.Bold else FontWeight.Normal,
                     )
                 }
-                Text(
-                    status.text, fontSize = 13.sp, lineHeight = 18.sp, color = status.ink,
-                    fontWeight = if (status.bold) FontWeight.Bold else FontWeight.Normal,
-                )
             }
-            if (available != null && !checking) {
-                PillButton("업데이트", filled = true, onClick = onOpenUpdate)
-            } else {
-                PillButton("업데이트 확인", filled = false, onClick = onCheck, busy = checking)
+            AnimatedContent(
+                targetState = available != null && !checking,
+                transitionSpec = {
+                    (fadeIn(motionSpec(reduce, 220)) + scaleIn(spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow), initialScale = 0.85f))
+                        .togetherWith(fadeOut(motionSpec(reduce, 120)))
+                },
+                contentAlignment = Alignment.CenterEnd,
+                label = "appCardButton",
+            ) { hasUpdate ->
+                if (hasUpdate) {
+                    PillButton("업데이트", filled = true, onClick = onOpenUpdate)
+                } else {
+                    PillButton("업데이트 확인", filled = false, onClick = onCheck, busy = checking)
+                }
             }
         }
     }
@@ -333,15 +379,22 @@ private fun PillButton(label: String, filled: Boolean, onClick: () -> Unit, busy
 
 /** 묶음 제목 (작은 흐린 글자). badge가 있으면 옆에 경고 칩 */
 @Composable
-private fun SectionTitle(title: String, modifier: Modifier = Modifier, badge: String? = null) {
+internal fun SectionTitle(title: String, modifier: Modifier = Modifier, badge: String? = null) {
     val colors = AldotTheme.colors
     Row(modifier.semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, color = colors.muted)
-        if (badge != null) {
+        // 꺼진 것을 켜고 돌아오면 칩이 옆으로 접히며 사라진다. 사라지는 동안 마지막 글자를 그대로 보여 준다
+        var lastBadge by remember { mutableStateOf(badge) }
+        if (badge != null) lastBadge = badge
+        AnimatedVisibility(
+            visible = badge != null,
+            enter = fadeIn(motionTween()) + expandHorizontally(motionTween()),
+            exit = fadeOut(motionTween()) + shrinkHorizontally(motionTween()),
+        ) {
             Box(
                 Modifier.padding(start = 8.dp).clip(CircleShape).background(colors.warnBg).padding(horizontal = 8.dp, vertical = 2.dp),
             ) {
-                Text(badge, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, color = colors.warn)
+                Text(lastBadge.orEmpty(), fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, color = colors.warn, maxLines = 1)
             }
         }
     }
@@ -368,11 +421,13 @@ private fun ActionRow(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         Row(Modifier.padding(end = 12.dp).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            val stageBg by animateColorAsState(if (warn) colors.warnBg else colors.segment, motionTween(), label = "stage")
+            val stageInk by animateColorAsState(if (warn) colors.warn else colors.sub, motionTween(), label = "stageInk")
             Box(
-                Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(if (warn) colors.warnBg else colors.segment),
+                Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(stageBg),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(painterResource(icon), contentDescription = null, tint = if (warn) colors.warn else colors.sub, modifier = Modifier.size(17.dp))
+                Icon(painterResource(icon), contentDescription = null, tint = stageInk, modifier = Modifier.size(17.dp))
             }
             Text(
                 label, fontSize = 15.sp, lineHeight = 20.sp, color = colors.text,
@@ -385,21 +440,41 @@ private fun ActionRow(
 
 /** 켜짐/꺼짐 줄. 켜져 있으면 "✓ 켜짐", 꺼져 있으면 "켜기" 버튼 */
 @Composable
-private fun StatusRow(icon: Int, label: String, on: Boolean, onFix: () -> Unit) {
+internal fun StatusRow(icon: Int, label: String, on: Boolean, onFix: () -> Unit) {
     val colors = AldotTheme.colors
     ActionRow(
         icon, label, warn = !on,
         // 화면 읽기: "밤에도 로그인 유지, 꺼짐" 한 번에 읽고, 켜기 버튼은 따로 누를 수 있게 둔다
         modifier = Modifier.semantics(mergeDescendants = true) { stateDescription = if (on) "켜짐" else "꺼짐" },
     ) {
-        if (on) {
-            Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
-                Text("켜짐", fontSize = 14.sp, lineHeight = 20.sp, color = colors.sub, modifier = Modifier.padding(start = 4.dp))
-            }
-        } else {
-            FixButton(onFix)
+        val reduce = LocalReduceMotion.current
+        // 꺼져 있다가 켜진 순간에만 체크를 그리며 바꾼다 (처음부터 켜져 있으면 그대로) — 시안 애니메이션 ⑤
+        var wasOff by remember { mutableStateOf(!on) }
+        LaunchedEffect(on) { if (!on) wasOff = true }
+        AnimatedContent(
+            targetState = on,
+            transitionSpec = {
+                (fadeIn(motionSpec(reduce, 220, delay = 120)) + scaleIn(motionSpec(reduce, 220, delay = 120), initialScale = 0.9f))
+                    .togetherWith(fadeOut(motionSpec(reduce, 160)) + scaleOut(motionSpec(reduce, 160), targetScale = 0.8f))
+            },
+            contentAlignment = Alignment.CenterEnd,
+            label = "statusRow",
+        ) { nowOn ->
+            if (nowOn) OnMark(animate = wasOff) else FixButton(onFix)
         }
+    }
+}
+
+/** "✓ 켜짐". animate면 체크가 그려지며 나타난다 */
+@Composable
+private fun OnMark(animate: Boolean) {
+    val colors = AldotTheme.colors
+    val reduce = LocalReduceMotion.current
+    val draw = remember { Animatable(if (animate && !reduce) 0f else 1f) }
+    LaunchedEffect(Unit) { draw.animateTo(1f, tween(durationMillis = 350, delayMillis = 200)) }
+    Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        DrawnCheck(draw.value, colors.accent, Modifier.size(16.dp))
+        Text("켜짐", fontSize = 14.sp, lineHeight = 20.sp, color = colors.sub, modifier = Modifier.padding(start = 4.dp))
     }
 }
 

@@ -3,6 +3,13 @@ package io.github.guest01.aldotwidget.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,17 +28,23 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -45,6 +58,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.guest01.aldotwidget.BuildConfig
 import io.github.guest01.aldotwidget.R
+import io.github.guest01.aldotwidget.ui.DrawnCheck
+import io.github.guest01.aldotwidget.ui.LocalReduceMotion
+import io.github.guest01.aldotwidget.ui.rememberGuideClock
+import io.github.guest01.aldotwidget.ui.rippleAlpha
+import io.github.guest01.aldotwidget.ui.seg
+import io.github.guest01.aldotwidget.ui.smooth
+import kotlin.math.PI
+import kotlin.math.sin
 import io.github.guest01.aldotwidget.ui.theme.AldotTheme
 import io.github.guest01.aldotwidget.update.InstallState
 import io.github.guest01.aldotwidget.update.UpdateInfo
@@ -166,7 +187,7 @@ private fun NotesPart(
             SubButton("취소", onCancel)
         }
         InstallState.Installing -> {
-            ProgressPart("설치하는 중", UpdateText.size(info.size), progress = 1f)
+            InstallingPart(UpdateText.size(info.size))
             Text(
                 "앱이 잠깐 닫혀요. 끝나면 알림으로 알려 드려요.\n" +
                     "처음에는 Google Play 프로텍트 창이 뜰 수 있어요. '앱 설치 안함'을 누르면 설치가 멈춰요.",
@@ -182,8 +203,10 @@ private fun NotesPart(
 }
 
 @Composable
-private fun ProgressPart(label: String, amount: String, progress: Float) {
+internal fun ProgressPart(label: String, amount: String, progress: Float) {
     val colors = AldotTheme.colors
+    // 받은 양이 띄엄띄엄 와도 막대는 부드럽게 따라간다
+    val shown by animateFloatAsState(progress, tween(if (LocalReduceMotion.current) 0 else 300), label = "download")
     Column(
         Modifier.padding(top = 24.dp).heightIn(min = 56.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         verticalArrangement = Arrangement.Center,
@@ -193,7 +216,7 @@ private fun ProgressPart(label: String, amount: String, progress: Float) {
             Text(amount, fontSize = 15.sp, lineHeight = 20.sp, color = colors.sub)
         }
         LinearProgressIndicator(
-            progress = { progress },
+            progress = { shown },
             modifier = Modifier.padding(top = 10.dp).fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
             color = colors.button,
             trackColor = colors.line,
@@ -201,6 +224,37 @@ private fun ProgressPart(label: String, amount: String, progress: Float) {
             gapSize = 0.dp,
             drawStopIndicator = {},
         )
+    }
+}
+
+/** 다 받은 뒤: 동그라미가 톡 커지며 체크가 그려지고 "설치하는 중"으로 넘어간다 (시안 애니메이션 ⑦) */
+@Composable
+internal fun InstallingPart(amount: String) {
+    val colors = AldotTheme.colors
+    val reduce = LocalReduceMotion.current
+    val pop = remember { Animatable(if (reduce) 1f else 0f) }
+    val draw = remember { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        pop.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow))
+    }
+    LaunchedEffect(Unit) {
+        draw.animateTo(1f, tween(durationMillis = 450, delayMillis = 150))
+    }
+    Row(
+        Modifier.padding(top = 24.dp).fillMaxWidth().heightIn(min = 56.dp)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(40.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value }.clip(CircleShape).background(colors.button),
+            contentAlignment = Alignment.Center,
+        ) {
+            DrawnCheck(draw.value, Color.White, Modifier.size(22.dp), strokeWidth = 2.8.dp)
+        }
+        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+            Text("다 받았어요. 설치하는 중", fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, color = colors.text)
+            Text(amount, fontSize = 13.sp, lineHeight = 18.sp, color = colors.sub)
+        }
     }
 }
 
@@ -239,9 +293,9 @@ private fun GuidePart(
     SubButton(secondary.first, secondary.second)
 }
 
-/** 설치 허용: Android 설정에서 켤 스위치 그림 (눌러지는 스위치가 아니라 그림이다) */
+/** 설치 허용: Android 설정에서 켤 스위치 그림 (눌러지는 스위치가 아니라 그림이다). 스위치가 켜지는 모습을 몇 번 보여 준다 */
 @Composable
-private fun PermissionPicture() {
+internal fun PermissionPicture() {
     val colors = AldotTheme.colors
     Column(
         Modifier.padding(top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.segment)
@@ -255,10 +309,7 @@ private fun PermissionPicture() {
                 "남았닷", fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, color = colors.text,
                 modifier = Modifier.weight(1f).padding(start = 12.dp),
             )
-            Switch(
-                checked = true, onCheckedChange = null,
-                colors = SwitchDefaults.colors(checkedTrackColor = colors.button, checkedThumbColor = Color.White, checkedBorderColor = colors.button),
-            )
+            GuideSwitch()
         }
     }
     Text(
@@ -267,27 +318,64 @@ private fun PermissionPicture() {
     )
 }
 
-/** 보안 위험 자동 차단 끄는 길 (Fold8 One UI 9 메뉴 이름) */
+/**
+ * 스위치 그림: 꺼진 스위치에 탭 물결이 퍼지고 켜진 뒤 한 번 반짝인다 (시안 '안내 애니메이션' ①).
+ * 3.2초 한 바퀴를 세 번 돌고 켜진 모습에서 멈춘다.
+ */
 @Composable
-private fun BlockSteps() {
+private fun GuideSwitch() {
+    val colors = AldotTheme.colors
+    val t by rememberGuideClock(cycleMs = 3200)
+    val on = smooth(seg(t, 0.38f, 0.48f))
+    val ripple = seg(t, 0.28f, 0.50f)
+    val glow = seg(t, 0.52f, 0.82f).let { if (it <= 0f || it >= 1f) 0f else sin(it * PI.toFloat()) }
+    val offTrack = lerp(colors.line, colors.muted, 0.45f)
+    Canvas(Modifier.size(width = 44.dp, height = 26.dp)) {
+        val radius = CornerRadius(size.height / 2)
+        if (glow > 0f) {
+            val grow = 5.dp.toPx() * glow
+            drawRoundRect(
+                colors.button.copy(alpha = 0.25f * glow), topLeft = Offset(-grow, -grow),
+                size = Size(size.width + grow * 2, size.height + grow * 2), cornerRadius = CornerRadius(size.height / 2 + grow),
+            )
+        }
+        drawRoundRect(lerp(offTrack, colors.button, on), cornerRadius = radius)
+        val center = Offset(13.dp.toPx() + 18.dp.toPx() * on, size.height / 2)
+        val alpha = rippleAlpha(ripple)
+        if (alpha > 0f) drawCircle(colors.button.copy(alpha = alpha), radius = 22.dp.toPx() * (0.3f + 0.7f * ripple), center = center)
+        drawCircle(Color.White, radius = 10.dp.toPx(), center = center)
+    }
+}
+
+/** 보안 위험 자동 차단 끄는 길 (Fold8 One UI 9 메뉴 이름). 1 → 2 → 3이 차례로 강조된다 (시안 '안내 애니메이션' ④) */
+@Composable
+internal fun BlockSteps() {
     val colors = AldotTheme.colors
     val steps = listOf(
         "설정 → 보안 및 개인정보 보호 → 보안 위험 자동 차단",
         "잠시 끄고 여기로 돌아와 '다시 시도'",
         "설치가 끝나면 다시 켜도 돼요",
     )
+    val t by rememberGuideClock(cycleMs = 3600)
+    // 한 단계에 1/3씩, 끝 무렵 잠깐은 강조 없이. 멈춘 뒤(t = 1)에는 모두 보통 모습
+    val active = if (t >= 1f) -1 else (t * 3).toInt().takeIf { (t * 3) % 1f < 0.9f } ?: -1
     Column(
         Modifier.padding(top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.segment)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         steps.forEachIndexed { index, step ->
-            Row {
+            val on = index == active
+            // 꺼질 때도 같은 색에서 투명도만 낮춘다. Color.Transparent(투명한 검정)로 가면 중간에 검게 깜박인다
+            val rowBg by animateColorAsState(if (on) colors.stage else colors.stage.copy(alpha = 0f), tween(180), label = "stepBg")
+            val numBg by animateColorAsState(if (on) colors.button else colors.line, tween(180), label = "stepNum")
+            val numInk by animateColorAsState(if (on) Color.White else colors.sub, tween(180), label = "stepInk")
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(rowBg).padding(8.dp)) {
                 Box(
-                    Modifier.padding(top = 1.dp).size(20.dp).clip(CircleShape).background(colors.line),
+                    Modifier.padding(top = 1.dp).size(20.dp).clip(CircleShape).background(numBg),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("${index + 1}", fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = colors.sub)
+                    Text("${index + 1}", fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = numInk)
                 }
                 Text(step, fontSize = 14.sp, lineHeight = 21.sp, color = colors.text, modifier = Modifier.padding(start = 10.dp))
             }

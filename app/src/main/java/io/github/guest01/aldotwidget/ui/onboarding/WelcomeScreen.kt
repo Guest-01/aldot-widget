@@ -1,5 +1,11 @@
 package io.github.guest01.aldotwidget.ui.onboarding
 
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
+import io.github.guest01.aldotwidget.ui.easeOut
+import io.github.guest01.aldotwidget.ui.rememberGuideClock
+import io.github.guest01.aldotwidget.ui.seg
+import io.github.guest01.aldotwidget.ui.overshoot
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,8 +82,11 @@ fun WelcomeScreen(onStart: () -> Unit, modifier: Modifier = Modifier) {
  * 실제 위젯과 같은 모양·색이다. 빈 칸은 앱 아이콘 자리.
  */
 @Composable
-private fun WidgetIllustration() {
+internal fun WidgetIllustration() {
     val colors = AldotTheme.colors
+    // 위젯이 차례로 톡 나타나고 막대·고리가 남은 양만큼 차오른다 (시안 애니메이션 ⑩). 한 번만
+    val t by rememberGuideClock(cycleMs = 1600, repeats = 1, startDelayMs = 250)
+    val fill = easeOut(seg(t, 0.2f, 0.9f))
     val cell = 72.dp
     val gap = 12.dp
     Box(
@@ -87,20 +96,26 @@ private fun WidgetIllustration() {
     ) {
         PictureTextStyle {
         Box(Modifier.size(cell * 3 + gap * 2)) {
-            MiniWidget(Modifier.size(cell * 2 + gap)) { SquarePicture() }
+            MiniWidget(Modifier.size(cell * 2 + gap), seg(t, 0f, 0.3f)) { SquarePicture(fill) }
             Slot(Modifier.offset(x = (cell + gap) * 2).size(cell))
-            MiniWidget(Modifier.offset(x = (cell + gap) * 2, y = cell + gap).size(cell)) { TinyPicture() }
+            MiniWidget(Modifier.offset(x = (cell + gap) * 2, y = cell + gap).size(cell), seg(t, 0.08f, 0.38f)) { TinyPicture(fill) }
             Slot(Modifier.offset(y = (cell + gap) * 2).size(cell))
-            MiniWidget(Modifier.offset(x = cell + gap, y = (cell + gap) * 2).size(width = cell * 2 + gap, height = cell)) { CompactPicture() }
+            MiniWidget(Modifier.offset(x = cell + gap, y = (cell + gap) * 2).size(width = cell * 2 + gap, height = cell), seg(t, 0.16f, 0.46f)) { CompactPicture(fill) }
         }
         }
     }
 }
 
+/**
+ * appear 0→1: 작은 점에서 톡 커지며(살짝 지나쳤다 돌아옴) 나타난다.
+ * 흐려지기(alpha)는 쓰지 않는다: 반투명한 동안은 그림자가 잘려 보여서 어색하다
+ */
 @Composable
-private fun MiniWidget(modifier: Modifier, content: @Composable () -> Unit) {
+private fun MiniWidget(modifier: Modifier, appear: Float, content: @Composable () -> Unit) {
+    val s = if (appear <= 0f) 0f else overshoot(appear)
     Box(
-        modifier.shadow(6.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(AldotTheme.colors.raised),
+        modifier.graphicsLayer { scaleX = s; scaleY = s }
+            .shadow(6.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(AldotTheme.colors.raised),
         contentAlignment = Alignment.Center,
     ) { content() }
 }
@@ -112,7 +127,7 @@ private fun Slot(modifier: Modifier) {
 }
 
 @Composable
-private fun SquarePicture() {
+private fun SquarePicture(fill: Float) {
     val colors = AldotTheme.colors
     Column(Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -122,7 +137,7 @@ private fun SquarePicture() {
         Text("데이터 남음", fontSize = pictureSp(9), color = colors.sub, modifier = Modifier.padding(top = 4.dp))
         Text("5.7 GB", fontSize = pictureSp(20), lineHeight = pictureSp(24), fontWeight = FontWeight.ExtraBold, color = colors.text)
         Box(Modifier.padding(top = 5.dp).fillMaxWidth().height(4.dp).clip(CircleShape).background(colors.line)) {
-            Box(Modifier.fillMaxWidth(0.38f).fillMaxHeight().clip(CircleShape).background(colors.accent))
+            Box(Modifier.fillMaxWidth(0.38f * fill).fillMaxHeight().clip(CircleShape).background(colors.accent))
         }
         PictureLine("음성", "212분", Modifier.padding(top = 9.dp))
         PictureLine("문자", "88건", Modifier.padding(top = 3.dp))
@@ -141,10 +156,10 @@ private fun PictureLine(label: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-private fun TinyPicture() {
+private fun TinyPicture(fill: Float) {
     val colors = AldotTheme.colors
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        PictureRing(44.dp, 5.dp) {
+        PictureRing(44.dp, 5.dp, ratio = 0.38f * fill) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("5.7", fontSize = pictureSp(11), lineHeight = pictureSp(12), fontWeight = FontWeight.ExtraBold, color = colors.text)
                 Text("GB", fontSize = pictureSp(7), lineHeight = pictureSp(8), color = colors.sub)
@@ -155,10 +170,10 @@ private fun TinyPicture() {
 }
 
 @Composable
-private fun CompactPicture() {
+private fun CompactPicture(fill: Float) {
     val colors = AldotTheme.colors
     Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        PictureRing(48.dp, 5.5.dp) {
+        PictureRing(48.dp, 5.5.dp, ratio = 0.38f * fill) {
             Text("38%", fontSize = pictureSp(10), fontWeight = FontWeight.ExtraBold, color = colors.text)
         }
         Column(Modifier.padding(start = 10.dp)) {

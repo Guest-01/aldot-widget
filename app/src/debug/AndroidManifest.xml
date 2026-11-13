@@ -10,6 +10,12 @@
             android:name=".debug.DemoReceiver"
             android:exported="true"
             android:permission="android.permission.DUMP" />
+        <!-- 애니메이션 미리보기 (MotionGalleryActivity 설명 참고). 홈 화면 아이콘 없이 adb shell로만 연다. -->
+        <activity
+            android:name=".debug.MotionGalleryActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:theme="@style/Theme.AldotWidget" />
     </application>
 
 </manifest>

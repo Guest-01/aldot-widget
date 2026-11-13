@@ -1,5 +1,14 @@
 package io.github.guest01.aldotwidget.ui.main
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
+import io.github.guest01.aldotwidget.ui.LocalReduceMotion
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -58,6 +67,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -261,9 +271,12 @@ private fun Hero(
     }
 }
 
-/** 남은 데이터 반원 계기판. 가운데 아래에 "남은 데이터"와 큰 숫자 */
+/**
+ * 남은 데이터 반원 계기판. 가운데 아래에 "남은 데이터"와 큰 숫자.
+ * 처음 보일 때 0에서 남은 양까지 차오르고 숫자도 함께 올라간다. 값이 바뀌면 그 차이만큼만 움직인다 (시안 애니메이션 ⑧).
+ */
 @Composable
-private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
+internal fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
     val ratio = data?.remainingRatio ?: 0f
     val totalText = data?.let { UsageFormat.dataKb(it.total).replace(".0 ", " ") }
     val (number, unit) = when {
@@ -272,8 +285,31 @@ private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
         data.remaining <= 0 -> "0" to splitUnit(totalText.orEmpty()).second
         else -> splitUnit(UsageFormat.dataKb(data.remaining))
     }
-    // 화면 읽기(TalkBack)는 계기판 전체를 한 문장으로 읽는다
+    // 화면 읽기(TalkBack)는 계기판 전체를 한 문장으로 읽는다 (움직이는 동안에도 최종 값으로)
     val spoken = if (data == null) "남은 데이터 정보 없음" else "남은 데이터 $number $unit, 전체 $totalText"
+
+    val reduce = LocalReduceMotion.current
+    val target = number.toDoubleOrNull()?.toFloat()
+    val shownRatio = remember { Animatable(if (reduce) ratio else 0f) }
+    val shownValue = remember { Animatable(if (reduce) target ?: 0f else 0f) }
+    var lastUnit by remember { mutableStateOf(unit) }
+    LaunchedEffect(ratio, target, unit) {
+        // 끝으로 갈수록 느려지며 멈춘다 (숫자가 마지막에 천천히 자리 잡게)
+        val spec = tween<Float>(if (reduce) 0 else 1600, easing = EaseOutCubic)
+        // 단위가 바뀌면(MB ↔ GB) 숫자는 세지 않고 바로 바꾼다
+        if (unit != lastUnit) { lastUnit = unit; target?.let { shownValue.snapTo(it) } }
+        launch { shownRatio.animateTo(ratio, spec) }
+        if (target != null) shownValue.animateTo(target, spec)
+    }
+    // 올라가는 동안은 정수로만 센다 (소수점까지 세면 너무 자주 바뀌어 정신없다). 다 오르면 진짜 값(13.2)으로.
+    // 큰 수(850 MB 등)는 1씩 세면 또 너무 빨라서, 스무 번 안팎으로 바뀌게 5·10·50… 단위로 센다
+    val shownNumber = when {
+        target == null || shownValue.value == target -> number
+        else -> {
+            val step = countStep(target)
+            ((shownValue.value / step).toInt() * step).toString()
+        }
+    }
     Box(
         modifier.size(width = 264.dp, height = 150.dp).clearAndSetSemantics { contentDescription = spoken },
         contentAlignment = Alignment.BottomCenter,
@@ -286,8 +322,9 @@ private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
             val topLeft = Offset(center.x - radius, center.y - radius)
             val arcSize = Size(radius * 2, radius * 2)
             drawArc(Color.White.copy(alpha = 0.22f), 180f, 180f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
-            if (ratio > 0f) {
-                drawArc(Color.White, 180f, 180f * ratio.coerceAtMost(1f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+            val shown = shownRatio.value
+            if (shown > 0.001f) {
+                drawArc(Color.White, 180f, 180f * shown.coerceAtMost(1f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -298,7 +335,7 @@ private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
             val total = totalText?.let { "/ $it" }
             Text(
                 buildAnnotatedString {
-                    append(number)
+                    append(shownNumber)
                     withStyle(SpanStyle(fontSize = cappedSp(20), letterSpacing = 0.sp)) { append(" $unit") }
                     if (total != null) {
                         withStyle(SpanStyle(fontSize = cappedSp(15), fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = OnAccentSub)) {
@@ -307,9 +344,22 @@ private fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
                     }
                 },
                 fontSize = cappedSp(50), lineHeight = cappedSp(56), fontWeight = FontWeight.Black, letterSpacing = (-1.5).sp,
+                // 숫자가 올라가는 동안 폭이 흔들리지 않게 고정폭 숫자
+                style = TextStyle(fontFeatureSettings = "tnum"),
                 color = OnAccent, maxLines = 1,
             )
         }
+    }
+}
+
+/** 계기판 숫자를 셀 단위: 0에서 target까지 스무 번 안팎으로 바뀌게 1, 2, 5, 10, 20, 50… 중에서 고른다 */
+internal fun countStep(target: Float): Int {
+    var magnitude = 1
+    while (true) {
+        for (m in intArrayOf(1, 2, 5)) {
+            if (target / (m * magnitude) <= 20) return m * magnitude
+        }
+        magnitude *= 10
     }
 }
 
