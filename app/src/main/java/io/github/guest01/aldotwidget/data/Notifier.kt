@@ -46,6 +46,7 @@ class Notifier(private val context: Context) {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_LOGIN)
             .setSmallIcon(R.drawable.ic_stat_usage)
+            .setColor(ICON_COLOR)
             .setContentTitle("알닷 로그인이 만료됐어요")
             .setContentText("위젯을 계속 갱신하려면 다시 로그인해 주세요")
             .setContentIntent(openApp)
@@ -76,6 +77,7 @@ class Notifier(private val context: Context) {
         createUpdateChannel()
         val notification = NotificationCompat.Builder(context, CHANNEL_UPDATE)
             .setSmallIcon(R.drawable.ic_stat_usage)
+            .setColor(ICON_COLOR)
             .setContentTitle("새 버전 ${UpdateText.subject(info.version)} 나왔어요")
             .setContentText("눌러서 바뀐 점을 보고 설치해요")
             .setContentIntent(openApp(MainActivity.EXTRA_OPEN_UPDATE))
@@ -90,6 +92,7 @@ class Notifier(private val context: Context) {
         createUpdateChannel()
         val notification = NotificationCompat.Builder(context, CHANNEL_UPDATE)
             .setSmallIcon(R.drawable.ic_stat_usage)
+            .setColor(ICON_COLOR)
             .setContentTitle("${UpdateText.toward(versionName)} 업데이트했어요")
             .setContentText("로그인과 설정은 그대로예요")
             .setContentIntent(openApp(null))
@@ -112,5 +115,7 @@ class Notifier(private val context: Context) {
         const val CHANNEL_UPDATE = "update"
         const val ID_NEED_LOGIN = 1
         const val ID_UPDATE = 2
+        /** 알림창에서 아이콘 뒤 동그라미 색. 앱 아이콘 바탕과 같은 파랑 (고른 테마 색과 상관없이). 폰에 따라 무시하기도 한다 */
+        const val ICON_COLOR = 0xFF1B64DA.toInt()
     }
 }

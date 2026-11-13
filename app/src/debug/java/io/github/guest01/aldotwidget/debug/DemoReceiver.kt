@@ -34,6 +34,7 @@ import java.time.temporal.TemporalAdjusters
  * - onboarding: 첫 실행 안내만 처음부터 다시 (지금 상태는 그대로)
  * - fresh: 처음 설치한 상태 (환영 화면부터, 로그인 화면은 실제 알닷 사이트)
  * - off: 샘플 모드를 끄고 저장된 사용량을 지운다 (다시 실제 로그인이 필요하다)
+ * - notify: 실제 알림 세 가지(로그인 만료, 새 버전, 업데이트 완료)를 띄워 본다. 로그인·데이터는 그대로
  *
  * 다른 앱이 보내지 못하도록 매니페스트에서 수신 권한을 DUMP로 막았다 (adb shell은 이 권한이 있다).
  */
@@ -69,6 +70,16 @@ class DemoReceiver : BroadcastReceiver() {
                 store.update { UsageState() }
             }
             "onboarding" -> settings.setOnboardingCompleted(false)
+            "notify" -> {
+                // 같은 종류는 한 자리에 덮어쓰이므로(업데이트 두 가지는 같은 번호) 새 버전 → 업데이트 완료 순서로 잠깐 띄운다
+                container.notifier.notifyNeedLogin()
+                container.notifier.notifyUpdateAvailable(
+                    io.github.guest01.aldotwidget.update.UpdateInfo("1.0.2", 3, "aldot-widget-1.0.2.apk", 11_500_000, "x"),
+                )
+                kotlinx.coroutines.delay(4_000)
+                container.notifier.notifyUpdated("1.0.2")
+                return
+            }
             else -> {
                 settings.setDemoMode(true)
                 store.update { current ->
