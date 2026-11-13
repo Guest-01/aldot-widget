@@ -25,8 +25,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // 업데이트 확인은 versionCode(정수)로 새 버전인지 비교한다. 릴리스마다 1씩 올린다
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         // 업데이트 정보 파일 주소. 공개 저장소의 "최신 릴리스" 첨부 파일을 읽는다 (GitHub API는 쓰지 않는다: IP당 시간당 60번 제한).
         // 저장소가 아직 공개 전이거나 로컬 서버로 시험할 때는 -Paldot.updateUrl=... 로 바꿔 빌드한다.
