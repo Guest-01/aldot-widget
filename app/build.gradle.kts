@@ -46,7 +46,7 @@ android {
                 // 비밀번호는 보통 사용자 환경 변수 ALDOT_SIGNING_PASSWORD로 준다 (파일에 적힌 값이 있으면 그쪽이 먼저)
                 storePassword = (project.findProperty("aldot.signing.storePassword") as String?)
                     ?: System.getenv("ALDOT_SIGNING_PASSWORD")
-                keyAlias = (project.findProperty("aldot.signing.keyAlias") as String?) ?: "aldot"
+                keyAlias = (project.findProperty("aldot.signing.keyAlias") as String?) ?: "guest01"
                 // 요즘 키 파일 형식(PKCS12)은 키 비밀번호가 파일 비밀번호와 같다
                 keyPassword = (project.findProperty("aldot.signing.keyPassword") as String?) ?: storePassword
             }

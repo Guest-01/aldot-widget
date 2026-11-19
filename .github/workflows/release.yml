@@ -4,7 +4,7 @@
 # 결과 파일만 7일 동안 내려받을 수 있게 올린다 (시험용).
 #
 # 필요한 저장소 Secrets
-#   ALDOT_KEYSTORE_BASE64   서명 키 파일(aldot-release.jks)을 base64 글자로 바꾼 것
+#   ALDOT_KEYSTORE_BASE64   서명 키 파일(guest01-android.jks)을 base64 글자로 바꾼 것
 #   ALDOT_SIGNING_PASSWORD  서명 키 비밀번호
 #
 # 외부 액션은 바뀔 수 없는 커밋 번호로 고정한다 (이 작업은 서명 키를 쓰므로). 새 버전은 Dependabot이 PR로 알려 준다.
@@ -86,7 +86,7 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ALDOT_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::ALDOT_KEYSTORE_BASE64 Secret이 없어요"; exit 1; fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aldot-release.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/guest01-android.jks"
 
       - name: 테스트하고 서명된 APK와 update.json 만들기
         env:
@@ -94,8 +94,8 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-configuration-cache testDebugUnitTest makeReleaseUpdate \
-            -Paldot.signing.storeFile="$RUNNER_TEMP/aldot-release.jks" -Paldot.signing.keyAlias=aldot
-          rm -f "$RUNNER_TEMP/aldot-release.jks"
+            -Paldot.signing.storeFile="$RUNNER_TEMP/guest01-android.jks" -Paldot.signing.keyAlias=guest01
+          rm -f "$RUNNER_TEMP/guest01-android.jks"
 
       - name: 서명 지문 확인
         run: |

@@ -135,8 +135,8 @@ Kotlin, Jetpack Compose, Glance(위젯), WorkManager로 만들었어요.
 1. **키 위치:** `C:\Users\<사용자>\.gradle\gradle.properties`(macOS·Linux는 `~/.gradle/gradle.properties`)에 적어요.
 
    ```properties
-   aldot.signing.storeFile=C:/Users/<사용자>/keys/aldot-release.jks
-   aldot.signing.keyAlias=aldot
+   aldot.signing.storeFile=C:/Users/<사용자>/keys/guest01-android.jks
+   aldot.signing.keyAlias=guest01
    ```
 
 2. **비밀번호:** 사용자 환경 변수 `ALDOT_SIGNING_PASSWORD`에 넣어요. 파일에는 적지 않아요.
