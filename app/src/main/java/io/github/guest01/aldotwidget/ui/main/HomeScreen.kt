@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -333,24 +334,53 @@ internal fun Gauge(data: Quota?, modifier: Modifier = Modifier) {
                 Text("남은 데이터", fontSize = 14.sp, color = OnAccentSub, modifier = Modifier.padding(start = 4.dp))
             }
             val total = totalText?.let { "/ $it" }
-            Text(
-                buildAnnotatedString {
-                    append(shownNumber)
-                    withStyle(SpanStyle(fontSize = cappedSp(20), letterSpacing = 0.sp)) { append(" $unit") }
-                    if (total != null) {
-                        withStyle(SpanStyle(fontSize = cappedSp(15), fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = OnAccentSub)) {
-                            append(" $total")
-                        }
-                    }
-                },
+            // 큰 숫자 줄은 고리 양 끝 사이에 놓인다. 넘치면(100.7 GB / 186.7 GB, 큰 글자 설정) 고리와 겹치므로 줄 전체를 같은 비율로 줄인다.
+            // 비율은 다 오른 최종 값으로 한 번만 잰다. 세는 동안 잴 때마다 바뀌면 99 → 100에서 글자 크기가 튄다.
+            val baseStyle = TextStyle(
                 fontSize = cappedSp(50), lineHeight = cappedSp(56), fontWeight = FontWeight.Black, letterSpacing = (-1.5).sp,
                 // 숫자가 올라가는 동안 폭이 흔들리지 않게 고정폭 숫자
-                style = TextStyle(fontFeatureSettings = "tnum"),
-                color = OnAccent, maxLines = 1,
+                fontFeatureSettings = "tnum",
+            )
+            val unitSp = cappedSp(20)
+            val totalSp = cappedSp(15)
+            val measurer = rememberTextMeasurer()
+            val maxWidthPx = with(LocalDensity.current) { GaugeTextMaxWidth.toPx() }
+            val fit = remember(number, unit, total, baseStyle, unitSp, totalSp, maxWidthPx) {
+                val width = measurer.measure(
+                    gaugeNumberText(number, unit, total, unitSp, totalSp), baseStyle, maxLines = 1, softWrap = false,
+                ).size.width
+                if (width <= maxWidthPx) 1f else maxWidthPx / width
+            }
+            Text(
+                gaugeNumberText(shownNumber, unit, total, unitSp * fit, totalSp * fit),
+                style = baseStyle.copy(
+                    fontSize = baseStyle.fontSize * fit, lineHeight = baseStyle.lineHeight * fit,
+                    letterSpacing = baseStyle.letterSpacing * fit,
+                ),
+                color = OnAccent, maxLines = 1, softWrap = false,
+                modifier = Modifier.widthIn(max = GaugeTextMaxWidth),
             )
         }
     }
 }
+
+/**
+ * 계기판 큰 숫자 줄이 쓸 수 있는 폭. 고리(반지름 112dp, 굵기 18dp)의 안쪽 지름은 206dp인데,
+ * 숫자 윗부분이 놓이는 높이에서는 고리가 안쪽으로 휘어 들어오므로 그보다 조금 좁게 잡는다.
+ */
+private val GaugeTextMaxWidth = 192.dp
+
+/** 계기판 큰 숫자 줄: "100.7" + " GB"(작게) + " / 186.7 GB"(더 작고 흐리게) */
+private fun gaugeNumberText(number: String, unit: String, total: String?, unitSp: TextUnit, totalSp: TextUnit) =
+    buildAnnotatedString {
+        append(number)
+        withStyle(SpanStyle(fontSize = unitSp, letterSpacing = 0.sp)) { append(" $unit") }
+        if (total != null) {
+            withStyle(SpanStyle(fontSize = totalSp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp, color = OnAccentSub)) {
+                append(" $total")
+            }
+        }
+    }
 
 /** 계기판 숫자를 셀 단위: 0에서 target까지 스무 번 안팎으로 바뀌게 1, 2, 5, 10, 20, 50… 중에서 고른다 */
 internal fun countStep(target: Float): Int {

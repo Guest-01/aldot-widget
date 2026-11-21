@@ -238,7 +238,17 @@ private fun Compact(snapshot: UsageSnapshot, status: WidgetStatus, size: DpSize)
         Spacer(GlanceModifier.width(12.dp))
         Column {
             Text("데이터 남음", style = subStyle(11))
-            Text(data?.let { UsageFormat.dataKb(it.remaining) } ?: "정보 없음", style = valueStyle(20), maxLines = 1)
+            if (data == null) {
+                Text("정보 없음", style = valueStyle(20), maxLines = 1)
+            } else {
+                // 좁은 폰의 2칸(≈179dp)에서는 고리 옆 글자 자리가 70dp 남짓이라 "100.7 GB"를 한 크기로 쓰면 "100.7 …"로 잘린다.
+                // 그래서 단위는 작게 따로 쓰고, 숫자가 다섯 글자 이상(100.7)이면 숫자도 한 단계 줄인다.
+                val (number, unit) = WidgetText.splitUnit(UsageFormat.dataKb(data.remaining))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(number, style = valueStyle(if (number.length >= 5) 18 else 20), maxLines = 1)
+                    Text(" $unit", style = valueStyle(13), maxLines = 1, modifier = GlanceModifier.padding(bottom = 2.dp))
+                }
+            }
             StatusLine(status)
         }
     }

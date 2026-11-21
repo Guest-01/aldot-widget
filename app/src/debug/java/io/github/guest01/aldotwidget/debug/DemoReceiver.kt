@@ -7,6 +7,7 @@ import android.util.Log
 import io.github.guest01.aldotwidget.AldotApp
 import io.github.guest01.aldotwidget.AppContainer
 import io.github.guest01.aldotwidget.data.ErrorText
+import io.github.guest01.aldotwidget.data.Quota
 import io.github.guest01.aldotwidget.data.SyncStatus
 import io.github.guest01.aldotwidget.data.UsageState
 import io.github.guest01.aldotwidget.data.sampleSnapshot
@@ -30,6 +31,8 @@ import java.time.temporal.TemporalAdjusters
  * - lastday: 이용 기간 마지막 날 (남은 날 0)
  * - long: 아주 긴 요금제·파트너사 이름 (줄바꿈 확인용)
  * - nodata: 음성·문자 정보가 없고 기간을 알 수 없는 응답
+ * - big: 남은 데이터가 100 GB를 넘는 경우 (100.7 GB / 186.7 GB, 숫자 폭 확인용)
+ * - mb: 남은 데이터가 1 GB 아래라 MB로 보이는 경우 (831 MB)
  * - login: 로그인이 풀린 상태 (다시 로그인 화면)
  * - onboarding: 첫 실행 안내만 처음부터 다시 (지금 상태는 그대로)
  * - fresh: 처음 설치한 상태 (환영 화면부터, 로그인 화면은 실제 알닷 사이트)
@@ -98,6 +101,10 @@ class DemoReceiver : BroadcastReceiver() {
                             planName = "[아주긴이름의알뜰폰파트너사] 5G 데이터 무제한 플러스 프리미엄 요금제 (음성 무제한·문자 기본 제공)",
                         )
                         "nodata" -> sample.copy(voice = null, sms = null, periodStart = null, remainDays = null)
+                        // 클리앙 제보 값: 남은 100.7 GB / 전체 186.7 GB (계기판·위젯 숫자 폭 확인용)
+                        "big" -> sample.copy(data = Quota(total = gbKb(186.7), used = gbKb(186.7) - gbKb(100.7) - 1))
+                        // 1 GB 아래로 내려가 MB로 보이는 경우: 남은 831 MB
+                        "mb" -> sample.copy(data = sample.data?.let { it.copy(used = it.total - 851_749) })
                         else -> current.snapshot ?: sample
                     }
                     val base = UsageState(snapshot = snapshot, status = SyncStatus.OK)
@@ -112,6 +119,8 @@ class DemoReceiver : BroadcastReceiver() {
         }
         container.usageSync.redrawWidgets()
     }
+
+    private fun gbKb(gb: Double): Long = (gb * 1024 * 1024).toLong()
 
     /** "2026.11.03" → "2026.11.30" (같은 달의 말일) */
     private fun lastDayOf(apiDate: String): String {

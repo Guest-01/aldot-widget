@@ -53,7 +53,11 @@ class UsageMappingTest {
     fun `사이트와 같은 표기로 바꾼다`() {
         assertEquals("2.9 GB", UsageFormat.dataKb(3044253))
         assertEquals("2.1 GB", UsageFormat.dataKb(2192504))
-        assertEquals("831.8 MB", UsageFormat.dataKb(3044253 - 2192504))
+        // MB는 정수로, 반올림하지 않고 버린다 (831.8 → 831, 1023.9 → 1023)
+        assertEquals("831 MB", UsageFormat.dataKb(3044253 - 2192504))
+        assertEquals("1023 MB", UsageFormat.dataKb(1024L * 1024 - 100))
+        assertEquals("1.0 GB", UsageFormat.dataKb(1024L * 1024))
+        assertEquals("100.7 GB", UsageFormat.dataKb((100.7 * 1024 * 1024).toLong() + 1))
         assertEquals("58분", UsageFormat.voiceMinutes(3484))
         assertEquals("4분", UsageFormat.voiceMinutes(297))
         assertEquals("5분", UsageFormat.voiceMinutes(300))
